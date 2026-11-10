@@ -20,7 +20,21 @@ import { buildFilePrompt } from "../src/lib/prompt.mjs";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.join(ROOT, "out");
 const PORT = Number(process.env.PORT || 5173);
-const CLAUDE_BIN = process.env.CLAUDE_BIN || "claude";
+// Claude Code の場所を探す。デスクトップのアイコンから起動すると PATH が古いことがあるため、
+// セットアップ時に記録した場所（.claude-path）とよくある場所を順に確認する。
+function findClaude() {
+  if (process.env.CLAUDE_BIN) return process.env.CLAUDE_BIN;
+  const candidates = [];
+  const recorded = path.join(ROOT, ".claude-path");
+  if (fs.existsSync(recorded)) candidates.push(fs.readFileSync(recorded, "utf8").replace(/^\uFEFF/, "").trim());
+  if (process.platform === "win32") {
+    const home = process.env.USERPROFILE || os.homedir();
+    candidates.push(path.join(home, ".local", "bin", "claude.exe"));
+    if (process.env.APPDATA) candidates.push(path.join(process.env.APPDATA, "npm", "claude.cmd"));
+  }
+  return candidates.find((c) => c && fs.existsSync(c)) || "claude";
+}
+const CLAUDE_BIN = findClaude();
 const MODEL = process.env.CLAUDE_MODEL || "sonnet";
 const TIMEOUT_MS = 4 * 60 * 1000;
 const MAX_BODY = 40 * 1024 * 1024;
@@ -99,9 +113,13 @@ function runClaude(dir, files) {
       "--no-session-persistence",
       "--strict-mcp-config",
     ];
-    const child = spawn(CLAUDE_BIN, args, {
+    // Windows の .cmd や、場所が分からない "claude" はコマンドプロンプト経由で起動する。
+    // そのときは空白を含む場所に備えて引用符で囲む。.exe は直接起動する。
+    const useShell = process.platform === "win32" && !/\.exe$/i.test(CLAUDE_BIN);
+    const command = useShell && CLAUDE_BIN.includes(" ") ? `"${CLAUDE_BIN}"` : CLAUDE_BIN;
+    const child = spawn(command, args, {
       cwd: dir,
-      shell: process.platform === "win32", // Windows では claude.cmd を探すために必要
+      shell: useShell,
       windowsHide: true,
       stdio: ["pipe", "pipe", "pipe"],
     });
@@ -184,6 +202,7 @@ server.listen(PORT, "0.0.0.0", () => {
     .filter((n) => n && n.family === "IPv4" && !n.internal)
     .map((n) => n.address);
   console.log("\n年末調整 記入お手本 を起動しました。");
+  console.log(`（Claude Code: ${CLAUDE_BIN === "claude" ? "見つかりません。読み取り時にエラーになります" : CLAUDE_BIN}）`);
   console.log("スマホを PC と同じ Wi-Fi につないで、次のアドレスを開いてください。\n");
   for (const ip of ips) console.log(`  http://${ip}:${PORT}/?t=${TOKEN}`);
   if (ips[0]) {

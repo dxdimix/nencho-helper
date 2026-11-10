@@ -81,6 +81,9 @@ if ($LASTEXITCODE -ne 0) { Pop-Location; Fail "部品の準備に失敗しまし
 Pop-Location
 Ok "準備できました"
 
+# アプリが Claude Code を確実に見つけられるよう、場所を記録しておく。
+[IO.File]::WriteAllText((Join-Path $AppDir ".claude-path"), (Claude-Path))
+
 # 4. デスクトップにショートカットを作る
 Step "デスクトップにショートカットを作っています"
 $Desktop = [Environment]::GetFolderPath("Desktop")
