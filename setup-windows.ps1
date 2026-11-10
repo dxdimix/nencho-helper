@@ -58,6 +58,34 @@ if (Claude-Path) {
   Ok "インストールしました"
 }
 
+# 2-2. Tailscale（外出先から家の PC につなぐための無料サービス）
+Step "Tailscale を確認しています（外出先から使うため）"
+$TsExe = Join-Path $env:ProgramFiles "Tailscale\tailscale.exe"
+if (Test-Path $TsExe) {
+  Ok "インストール済み"
+} elseif (Has "winget") {
+  Write-Host "   Tailscale をインストールします（確認画面が出たら「はい」を押してください）"
+  winget install -e --id Tailscale.Tailscale --accept-source-agreements --accept-package-agreements
+  if (Test-Path $TsExe) { Ok "インストールしました" } else { Write-Host "   Tailscale を入れられませんでした。家の Wi-Fi でだけ使えます。" -ForegroundColor Yellow }
+} else {
+  Write-Host "   Tailscale を自動で入れられませんでした。https://tailscale.com/download から入れると外出先でも使えます。" -ForegroundColor Yellow
+}
+if (Test-Path $TsExe) {
+  $prev = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+  & $TsExe ip -4 2>&1 | Out-Null
+  $tsOk = ($LASTEXITCODE -eq 0); $ErrorActionPreference = $prev
+  if ($tsOk) {
+    Ok "ログイン済み"
+  } else {
+    Write-Host "   Tailscale にまだログインしていません。これからブラウザでログイン画面を開きます。" -ForegroundColor Yellow
+    Write-Host "   Google などのアカウントでログインしてください。スマホの Tailscale アプリでも同じアカウントでログインします。" -ForegroundColor Yellow
+    Read-Host "   準備ができたら Enter キーを押してください"
+    $prev = $ErrorActionPreference; $ErrorActionPreference = "Continue"
+    & $TsExe up 2>&1 | Out-Host
+    $ErrorActionPreference = $prev
+  }
+}
+
 # 3. アプリ本体（最新版をダウンロード。合言葉ファイルは引き継ぐ）
 Step "アプリをダウンロードしています"
 $Tmp = Join-Path $env:TEMP ("nencho-setup-" + [guid]::NewGuid())

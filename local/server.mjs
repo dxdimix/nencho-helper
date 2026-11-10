@@ -196,18 +196,39 @@ const server = http.createServer((req, res) => {
   serveStatic(req, res);
 });
 
+// Tailscale のアドレス（100.64.0.0〜100.127.255.255）かどうか
+function isTailscale(ip) {
+  const [a, b] = ip.split(".").map(Number);
+  return a === 100 && b >= 64 && b <= 127;
+}
+
 server.listen(PORT, "0.0.0.0", () => {
   const ips = Object.values(os.networkInterfaces())
     .flat()
     .filter((n) => n && n.family === "IPv4" && !n.internal)
     .map((n) => n.address);
+  const ts = ips.find(isTailscale);
+  const lan = ips.filter((ip) => !isTailscale(ip));
+  const url = (ip) => `http://${ip}:${PORT}/?t=${TOKEN}`;
+
   console.log("\n年末調整 記入お手本 を起動しました。");
-  console.log(`（Claude Code: ${CLAUDE_BIN === "claude" ? "見つかりません。読み取り時にエラーになります" : CLAUDE_BIN}）`);
-  console.log("スマホを PC と同じ Wi-Fi につないで、次のアドレスを開いてください。\n");
-  for (const ip of ips) console.log(`  http://${ip}:${PORT}/?t=${TOKEN}`);
-  if (ips[0]) {
-    console.log("\nスマホのカメラでこの QR コードを読み取っても開けます。");
-    qrcode.generate(`http://${ips[0]}:${PORT}/?t=${TOKEN}`, { small: true });
+  console.log(`（Claude Code: ${CLAUDE_BIN === "claude" ? "claude コマンドを PATH から探します" : CLAUDE_BIN}）\n`);
+  if (ts) {
+    console.log("■ 家でも外出先でも使えるアドレス（スマホの Tailscale をオンにして開く）");
+    console.log(`  ${url(ts)}`);
+    console.log("\n■ 家の Wi-Fi だけで使えるアドレス（Tailscale がオフのとき）");
+    for (const ip of lan) console.log(`  ${url(ip)}`);
+    console.log("\nスマホのカメラでこの QR コードを読み取ると、家でも外出先でも使えるアドレスが開きます。");
+    qrcode.generate(url(ts), { small: true });
+  } else {
+    console.log("スマホを PC と同じ Wi-Fi につないで、次のアドレスを開いてください。");
+    for (const ip of lan) console.log(`  ${url(ip)}`);
+    console.log("（外出先でも使うには、PC とスマホに Tailscale を入れてログインしてください）");
+    if (lan[0]) {
+      console.log("\nスマホのカメラでこの QR コードを読み取っても開けます。");
+      qrcode.generate(url(lan[0]), { small: true });
+    }
   }
+  console.log("このアプリを使う間は、PC の電源を入れたまま（スリープしない状態）にしてください。");
   console.log("終了するときは、この画面で Ctrl + C を押してください。\n");
 });
