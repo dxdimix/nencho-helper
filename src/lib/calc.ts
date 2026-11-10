@@ -11,6 +11,18 @@ export function lifeNewFormula(x: number): number {
   return 40000;
 }
 
+/**
+ * 令和8年分の特例：23歳未満（平成16年1月2日以後生まれ）の扶養親族がいる場合の、
+ * 一般生命保険料（新保険料等）用の計算式。上限は6万円。
+ */
+export function lifeNewFormulaUnder23(x: number): number {
+  if (x <= 0) return 0;
+  if (x <= 30000) return x;
+  if (x <= 60000) return Math.ceil(x / 2 + 15000);
+  if (x <= 120000) return Math.ceil(x / 4 + 30000);
+  return 60000;
+}
+
 /** 計算式Ⅱ（旧保険料等用） */
 export function lifeOldFormula(x: number): number {
   if (x <= 0) return 0;
@@ -33,24 +45,31 @@ export type NewOldBlock = {
   oldTotal: number; // 旧保険料等の合計
   newDeduction: number; // 計算式Ⅰに当てはめた金額
   oldDeduction: number; // 計算式Ⅱに当てはめた金額
-  combined: number; // 新＋旧（最高40,000円）
+  cap: number; // 新＋旧の上限（通常40,000円、令和8年分の23歳未満特例の一般は60,000円）
+  combined: number; // 新＋旧（上限まで）
   deduction: number; // 旧のみと（新＋旧）のいずれか大きい金額
 };
 
-function newOldBlock(newTotal: number, oldTotal: number): NewOldBlock {
-  const newDeduction = lifeNewFormula(newTotal);
+function newOldBlock(newTotal: number, oldTotal: number, under23 = false): NewOldBlock {
+  const newDeduction = under23 ? lifeNewFormulaUnder23(newTotal) : lifeNewFormula(newTotal);
   const oldDeduction = lifeOldFormula(oldTotal);
-  const combined = Math.min(newDeduction + oldDeduction, 40000);
-  return { newTotal, oldTotal, newDeduction, oldDeduction, combined, deduction: Math.max(oldDeduction, combined) };
+  const cap = under23 ? 60000 : 40000;
+  const combined = Math.min(newDeduction + oldDeduction, cap);
+  return { newTotal, oldTotal, newDeduction, oldDeduction, cap, combined, deduction: Math.max(oldDeduction, combined) };
 }
 
 const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
 
-export function calculate(r: ReadResult) {
+export type CalcOptions = {
+  /** 23歳未満（平成16年1月2日以後生まれ）の扶養親族がいる（令和8年分の一般生命保険料の特例） */
+  under23?: boolean;
+};
+
+export function calculate(r: ReadResult, opts: CalcOptions = {}) {
   const lifeSum = (cat: string, sys: string) =>
     sum(r.life.filter((i) => i.category === cat && i.system === sys).map((i) => i.amount));
 
-  const general = newOldBlock(lifeSum("一般", "新"), lifeSum("一般", "旧"));
+  const general = newOldBlock(lifeSum("一般", "新"), lifeSum("一般", "旧"), opts.under23);
   const pension = newOldBlock(lifeSum("個人年金", "新"), lifeSum("個人年金", "旧"));
   const careTotal = lifeSum("介護医療", "新") + lifeSum("介護医療", "旧");
   const care = { total: careTotal, deduction: lifeNewFormula(careTotal) };

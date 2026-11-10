@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { calculate, lifeNewFormula, lifeOldFormula, oldLongTermFormula } from "../src/lib/calc";
+import { calculate, lifeNewFormula, lifeNewFormulaUnder23, lifeOldFormula, oldLongTermFormula } from "../src/lib/calc";
 import { ReadResult, mergeResults, parsePasted } from "../src/lib/schema";
 
 describe("計算式", () => {
@@ -14,6 +14,12 @@ describe("計算式", () => {
     expect(lifeOldFormula(40000)).toBe(32500);
     expect(lifeOldFormula(80000)).toBe(45000);
     expect(lifeOldFormula(120000)).toBe(50000);
+  });
+  it("23歳未満の扶養親族がいる場合の計算式（令和8年分）", () => {
+    expect(lifeNewFormulaUnder23(30000)).toBe(30000);
+    expect(lifeNewFormulaUnder23(50000)).toBe(40000); // 50000/2+15000
+    expect(lifeNewFormulaUnder23(80000)).toBe(50000); // 80000/4+30000
+    expect(lifeNewFormulaUnder23(150000)).toBe(60000);
   });
   it("旧長期損害", () => {
     expect(oldLongTermFormula(15000)).toBe(12500);
@@ -34,6 +40,20 @@ describe("控除額の合計", () => {
     expect(c.general.oldDeduction).toBe(50000);
     expect(c.general.combined).toBe(40000);
     expect(c.general.deduction).toBe(50000);
+  });
+
+  it("23歳未満の特例では、一般の新＋旧の上限が6万円になる。介護医療・個人年金は変わらない", () => {
+    const r = ReadResult.parse({
+      ...base,
+      life: [life("一般", "新", 80000), life("一般", "旧", 40000), life("個人年金", "新", 100000)],
+    });
+    const normal = calculate(r);
+    expect(normal.general.deduction).toBe(40000); // 新40000+旧32500 → 上限4万
+    const special = calculate(r, { under23: true });
+    expect(special.general.newDeduction).toBe(50000);
+    expect(special.general.deduction).toBe(60000); // 50000+32500 → 上限6万
+    expect(special.pension.deduction).toBe(40000);
+    expect(special.lifeDeduction).toBe(100000);
   });
 
   it("生命保険料控除は最高12万円", () => {

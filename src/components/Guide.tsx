@@ -99,23 +99,23 @@ export function Guide({ data, calc }: { data: ReadResult; calc: Calculation }) {
               <h4 className="text-sm font-bold">一般の生命保険料</h4>
               <Total label="新保険料等の合計" value={calc.general.newTotal} />
               <Total label="旧保険料等の合計" value={calc.general.oldTotal} />
-              <Total label="計算式Ⅰ（新）に当てはめた金額" value={calc.general.newDeduction} />
-              <Total label="計算式Ⅱ（旧）に当てはめた金額" value={calc.general.oldDeduction} />
-              <Total label="新＋旧" note="最高40,000円" value={calc.general.combined} />
+              <Total label="新保険料等を計算式に当てはめた金額" note={calc.general.cap === 60000 ? "23歳未満の扶養親族がいる場合の計算式" : undefined} value={calc.general.newDeduction} />
+              <Total label="旧保険料等を計算式に当てはめた金額" value={calc.general.oldDeduction} />
+              <Total label="新＋旧" note={`最高${yen(calc.general.cap)}円`} value={calc.general.combined} />
               <Total label="いずれか大きい金額" value={calc.general.deduction} />
             </div>
             <div>
               <h4 className="text-sm font-bold">介護医療保険料</h4>
               <Total label="保険料等の合計" value={calc.care.total} />
-              <Total label="計算式Ⅰに当てはめた金額" value={calc.care.deduction} />
+              <Total label="計算式に当てはめた金額" value={calc.care.deduction} />
             </div>
             <div>
               <h4 className="text-sm font-bold">個人年金保険料</h4>
               <Total label="新保険料等の合計" value={calc.pension.newTotal} />
               <Total label="旧保険料等の合計" value={calc.pension.oldTotal} />
-              <Total label="計算式Ⅰ（新）に当てはめた金額" value={calc.pension.newDeduction} />
-              <Total label="計算式Ⅱ（旧）に当てはめた金額" value={calc.pension.oldDeduction} />
-              <Total label="新＋旧" note="最高40,000円" value={calc.pension.combined} />
+              <Total label="新保険料等を計算式に当てはめた金額" value={calc.pension.newDeduction} />
+              <Total label="旧保険料等を計算式に当てはめた金額" value={calc.pension.oldDeduction} />
+              <Total label="新＋旧" note={`最高${yen(calc.pension.cap)}円`} value={calc.pension.combined} />
               <Total label="いずれか大きい金額" value={calc.pension.deduction} />
             </div>
           </div>

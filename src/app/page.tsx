@@ -37,6 +37,8 @@ export default function Home() {
   const [reading, setReading] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
+  // 23歳未満の扶養親族がいるか（令和8年分の生命保険料控除の特例）。画面の状態にだけ持つ。
+  const [under23, setUnder23] = useState(false);
   const [pasted, setPasted] = useState("");
   const [copied, setCopied] = useState(false);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -228,7 +230,16 @@ export default function Home() {
               すべて消去
             </button>
           </div>
-          <Guide data={data} calc={calculate(data)} />
+          <label className="flex items-start gap-2 rounded border border-gray-300 bg-white p-3 text-sm">
+            <input type="checkbox" className="mt-1 h-5 w-5" checked={under23} onChange={(e) => setUnder23(e.target.checked)} />
+            <span>
+              23歳未満（平成16年1月2日以後生まれ）の扶養親族がいる
+              <span className="block text-xs text-gray-600">
+                令和8年分は、該当すると一般の生命保険料（新契約）の控除の上限が4万円から6万円に上がります。子どもなどを扶養しているときはチェックしてください。
+              </span>
+            </span>
+          </label>
+          <Guide data={data} calc={calculate(data, { under23 })} />
         </section>
       )}
 

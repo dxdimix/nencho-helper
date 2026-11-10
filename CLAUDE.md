@@ -29,6 +29,8 @@ claude.ai などのブラウザ画面の自動操作は規約違反なので行�
 - 読み取り項目の定義と貼り付けの解析: src/lib/schema.ts（prompt.mjs の出力形式と必ずそろえる）
 - 自宅PCサーバー: local/server.mjs、Windows 起動用: start-windows.bat
 - 控除額の計算: src/lib/calc.ts（国税庁の計算式。テストは tests/calc.test.ts）
+  - 令和8年分の特例: 23歳未満の扶養親族がいると、一般生命保険料（新）の計算式が変わり、新＋旧の上限が6万円になる（画面のチェックで切り替え）。
+  - 計算式や上限は年分ごとに変わるので、毎年、国税庁の「年末調整のしかた」と照らし合わせる。
 - お手本の表示: src/components/Guide.tsx
 
 ## 対象書類
