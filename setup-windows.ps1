@@ -99,6 +99,11 @@ $SavedToken = if (Test-Path $Token) { Get-Content $Token -Raw } else { $null }
 if (Test-Path $AppDir) { Remove-Item $AppDir -Recurse -Force }
 Move-Item $Src $AppDir
 if ($SavedToken) { Set-Content -Path $Token -Value $SavedToken.Trim() -NoNewline }
+# 起動時の自動更新が、今入れた版を最新と判断できるよう記録する
+try {
+  $sha = (Invoke-RestMethod -Uri "https://api.github.com/repos/dxdimix/nencho-helper/commits/main" -Headers @{ "User-Agent" = "nencho-helper" } -TimeoutSec 15).sha
+  [IO.File]::WriteAllText((Join-Path $AppDir ".version"), $sha)
+} catch { }
 Remove-Item $Tmp -Recurse -Force
 Ok "保存先: $AppDir"
 
