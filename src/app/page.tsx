@@ -1,103 +1,91 @@
-import Image from "next/image";
+"use client";
 
+import { useState } from "react";
+import { Guide } from "@/components/Guide";
+import { calculate } from "@/lib/calc";
+import { READ_PROMPT } from "@/lib/prompt";
+import { parsePasted, type ReadResult } from "@/lib/schema";
+
+// 個人情報の扱い: 貼り付けた内容は画面の状態（メモリ）にだけ持つ。
+// localStorage などには保存せず、外部にも送信しない。画面を閉じると消える。
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [pasted, setPasted] = useState("");
+  const [data, setData] = useState<ReadResult | null>(null);
+  const [error, setError] = useState("");
+  const [copied, setCopied] = useState(false);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  async function copyPrompt() {
+    try {
+      await navigator.clipboard.writeText(READ_PROMPT);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setError("コピーできませんでした。下の依頼文を長押しして選択し、コピーしてください。");
+    }
+  }
+
+  function load() {
+    const res = parsePasted(pasted);
+    if (res.ok) {
+      setData(res.data);
+      setError("");
+    } else {
+      setData(null);
+      setError(res.error);
+    }
+  }
+
+  function clearAll() {
+    setPasted("");
+    setData(null);
+    setError("");
+  }
+
+  return (
+    <main className="mx-auto max-w-5xl space-y-6 p-4 text-gray-900">
+      <h1 className="text-xl font-bold">年末調整 記入お手本</h1>
+
+      <section className="space-y-2">
+        <h2 className="font-bold">1. 依頼文をコピーする</h2>
+        <p className="text-sm">
+          Claude のチャットに、ハガキの写真と一緒にこの依頼文を送ってください。読み取りが終わったら、チャットは削除してかまいません。
+        </p>
+        <button onClick={copyPrompt} className="rounded bg-blue-600 px-4 py-2 text-white">
+          {copied ? "コピーしました" : "依頼文をコピー"}
+        </button>
+        <details className="text-sm">
+          <summary className="cursor-pointer text-gray-600">依頼文の中身を見る</summary>
+          <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap rounded bg-gray-100 p-2 text-xs">{READ_PROMPT}</pre>
+        </details>
+      </section>
+
+      <section className="space-y-2">
+        <h2 className="font-bold">2. チャットの回答を貼り付ける</h2>
+        <textarea
+          value={pasted}
+          onChange={(e) => setPasted(e.target.value)}
+          placeholder="チャットの回答をそのまま貼り付けてください"
+          className="h-40 w-full rounded border border-gray-400 p-2 font-mono text-xs"
+          autoComplete="off"
+          spellCheck={false}
+        />
+        <div className="flex gap-2">
+          <button onClick={load} disabled={!pasted.trim()} className="rounded bg-blue-600 px-4 py-2 text-white disabled:bg-gray-400">
+            お手本を表示
+          </button>
+          <button onClick={clearAll} className="rounded border border-gray-400 px-4 py-2">
+            すべて消去
+          </button>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+        {error && <p className="rounded border border-red-400 bg-red-50 p-2 text-sm text-red-800">{error}</p>}
+      </section>
+
+      {data && (
+        <section className="space-y-2">
+          <h2 className="font-bold">3. 保険料控除申告書の記入お手本</h2>
+          <Guide data={data} calc={calculate(data)} />
+        </section>
+      )}
+    </main>
   );
 }

@@ -2,18 +2,24 @@
 
 保険料控除証明書（ハガキ）の写真から内容を読み取り、年末調整の申告書のどの欄に何を書くかを示したお手本画像を作るWebアプリ。利用者は本人のみ。スマホのブラウザで使う。
 
+## 仕組み（API費用ゼロ）
+1. 利用者が Claude のチャットにハガキの写真と依頼文（src/lib/prompt.ts）を送る。
+2. チャットが決まった形式の JSON を返す。
+3. 利用者がその回答をアプリに貼り付ける。アプリが検証・計算し、記入お手本を表示する。
+アプリはサーバーを持たない静的サイト（next.config.ts の output: "export"）。
+
 ## 個人情報の扱い（必ず守る）
-- データベースは使わない。画像・読み取り結果をファイル、ログ、外部ストレージに保存しない。
-- サーバーは受け取った画像をメモリ上でだけ扱い、応答を返したら破棄する。
-- 画像や読み取り結果を console.log しない。エラーログにも中身を含めない。
-- ブラウザ側でも localStorage / IndexedDB に保存しない。画面を閉じたら消える状態にする。
-- 外部に送るのは Claude API への画像送信のみ。
+- データベースもサーバーも使わない。貼り付けた内容は React の状態（メモリ）にだけ持つ。
+- localStorage / IndexedDB / Cookie に保存しない。画面を閉じたら消える状態にする。
+- 外部への送信（fetch、解析ツール、外部フォントなど）を追加しない。
+- 読み取り結果を console.log しない。
 
 ## 技術構成
 - Next.js 15（App Router, TypeScript, Tailwind）
-- @anthropic-ai/sdk（モデル: claude-opus-5-5）、zod で読み取り結果の形を定義
-- 読み取り: src/app/api/analyze/route.ts
-- 読み取り項目の定義: src/lib/schema.ts
+- zod で読み取り結果の形を定義し、貼り付けた内容を検証する
+- 読み取り項目の定義と貼り付けの解析: src/lib/schema.ts（prompt.ts の出力形式と必ずそろえる）
+- 控除額の計算: src/lib/calc.ts（国税庁の計算式。テストは tests/calc.test.ts）
+- お手本の表示: src/components/Guide.tsx
 
 ## 対象書類
 - 保険料控除申告書（生命保険の新旧・一般/介護医療/個人年金、地震保険、旧長期損害保険、社会保険、小規模企業共済等掛金＝iDeCo）
@@ -21,4 +27,4 @@
 - 基礎控除申告書 兼 配偶者控除等申告書 兼 所得金額調整控除申告書
 
 ## コマンド
-- npm run dev / npm run build / npm run lint
+- npm run dev / npm run build / npm run lint / npm test
