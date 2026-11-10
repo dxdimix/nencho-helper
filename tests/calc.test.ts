@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { calculate, lifeNewFormula, lifeOldFormula, oldLongTermFormula } from "../src/lib/calc";
-import { ReadResult, parsePasted } from "../src/lib/schema";
+import { ReadResult, mergeResults, parsePasted } from "../src/lib/schema";
 
 describe("計算式", () => {
   it("計算式Ⅰ（新）", () => {
@@ -61,6 +61,15 @@ describe("貼り付けの読み込み", () => {
     const res = parsePasted('はい。\n```json\n{"life":[],"social":[{"kind":"国民年金保険料","payee":"日本年金機構","amount":203760,"confidence":"高"}]}\n```');
     expect(res.ok).toBe(true);
     if (res.ok) expect(calculate(res.data).social.deduction).toBe(203760);
+  });
+  it("AIが error を返したときは、その理由を表示する", () => {
+    const res = parsePasted('```json\n{"life":[],"error":"写真が添付されていません"}\n```');
+    expect(res).toEqual({ ok: false, error: "読み取れませんでした：写真が添付されていません" });
+  });
+  it("複数の結果をつなげられる", () => {
+    const a = ReadResult.parse({ social: [{ kind: "国民年金保険料", payee: "日本年金機構", amount: 1000, confidence: "高" }] });
+    const b = ReadResult.parse({ social: [{ kind: "国民年金保険料", payee: "日本年金機構", amount: 2000, confidence: "高" }] });
+    expect(calculate(mergeResults(a, b)).social.deduction).toBe(3000);
   });
   it("形式が違えばエラーを返す", () => {
     expect(parsePasted("読み取れませんでした").ok).toBe(false);

@@ -3,21 +3,30 @@
 保険料控除証明書（ハガキ）の写真から内容を読み取り、年末調整の申告書のどの欄に何を書くかを示したお手本画像を作るWebアプリ。利用者は本人のみ。スマホのブラウザで使う。
 
 ## 仕組み（API費用ゼロ）
-1. 利用者が Claude のチャットにハガキの写真と依頼文（src/lib/prompt.ts）を送る。
-2. チャットが決まった形式の JSON を返す。
-3. 利用者がその回答をアプリに貼り付ける。アプリが検証・計算し、記入お手本を表示する。
-アプリはサーバーを持たない静的サイト（next.config.ts の output: "export"）。
+アプリ画面は静的サイト（next.config.ts の output: "export"）。2つの使い方がある。
+
+1. 自宅PCモード（メイン）: 利用者のWindows PCで local/server.mjs を起動する。
+   スマホは同じ Wi-Fi から PC の画面を開き、撮影した写真を送る。
+   サーバーは写真を一時フォルダに書き、`claude -p`（Claude Code のヘッドレスモード、利用者の有料プラン）で読み取らせ、JSON を返す。
+   URL の ?t= の合言葉（.local-token）で、同じ Wi-Fi の他人の利用を防ぐ。
+2. 貼り付けモード（予備）: GitHub Pages 版。利用者が任意のAIチャットに写真と依頼文を送り、回答を貼り付ける。
+
+画面は api/health に問い合わせて、どちらのモードかを判定する。
+claude.ai などのブラウザ画面の自動操作は規約違反なので行わない。Claude API も使わない（利用者の希望）。
 
 ## 個人情報の扱い（必ず守る）
-- データベースもサーバーも使わない。貼り付けた内容は React の状態（メモリ）にだけ持つ。
+- データベースは使わない。写真と読み取り結果は React の状態（メモリ）にだけ持つ。
 - localStorage / IndexedDB / Cookie に保存しない。画面を閉じたら消える状態にする。
-- 外部への送信（fetch、解析ツール、外部フォントなど）を追加しない。
-- 読み取り結果を console.log しない。
+- 画面からの通信は、自宅PCサーバー（同一オリジンの api/*）だけ。解析ツールや外部フォントなどを追加しない。
+- 自宅PCサーバーは写真を一時フォルダにだけ書き、読み取り後すぐ削除する。claude は --no-session-persistence と --tools Read で動かす。
+- 写真の中身や読み取り結果をログ（console.log）に出さない。
 
 ## 技術構成
 - Next.js 15（App Router, TypeScript, Tailwind）
 - zod で読み取り結果の形を定義し、貼り付けた内容を検証する
-- 読み取り項目の定義と貼り付けの解析: src/lib/schema.ts（prompt.ts の出力形式と必ずそろえる）
+- 依頼文: src/lib/prompt.mjs（画面とサーバーの両方が使うため .mjs）
+- 読み取り項目の定義と貼り付けの解析: src/lib/schema.ts（prompt.mjs の出力形式と必ずそろえる）
+- 自宅PCサーバー: local/server.mjs、Windows 起動用: start-windows.bat
 - 控除額の計算: src/lib/calc.ts（国税庁の計算式。テストは tests/calc.test.ts）
 - お手本の表示: src/components/Guide.tsx
 
@@ -28,3 +37,4 @@
 
 ## コマンド
 - npm run dev / npm run build / npm run lint / npm test
+- npm run local（ビルドして自宅PCサーバーを起動）

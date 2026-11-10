@@ -90,10 +90,24 @@ export function parsePasted(text: string):
   } catch {
     return { ok: false, error: "読み取り結果の形式が崩れています。チャットの回答を最初から最後までコピーしてください。" };
   }
+  if (json && typeof json === "object" && "error" in json && typeof json.error === "string" && json.error) {
+    return { ok: false, error: `読み取れませんでした：${json.error}` };
+  }
   const parsed = ReadResult.safeParse(json);
   if (!parsed.success) {
     const first = parsed.error.issues[0];
     return { ok: false, error: `項目「${first.path.join(".")}」の内容が想定と違います（${first.message}）。` };
   }
   return { ok: true, data: parsed.data };
+}
+
+// 何回かに分けて読み取った結果を1つにまとめる。
+export function mergeResults(a: ReadResult, b: ReadResult): ReadResult {
+  return {
+    life: [...a.life, ...b.life],
+    earthquake: [...a.earthquake, ...b.earthquake],
+    social: [...a.social, ...b.social],
+    smallBiz: [...a.smallBiz, ...b.smallBiz],
+    excluded: [...a.excluded, ...b.excluded],
+  };
 }

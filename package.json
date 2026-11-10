@@ -7,10 +7,13 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "vitest run"
+    "test": "vitest run",
+    "local": "next build && node local/server.mjs",
+    "local:serve": "node local/server.mjs"
   },
   "dependencies": {
     "next": "15.5.29",
+    "qrcode-terminal": "^0.12.0",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "zod": "^4.6.7"
