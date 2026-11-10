@@ -229,6 +229,7 @@ server.listen(PORT, "0.0.0.0", () => {
       qrcode.generate(url(lan[0]), { small: true });
     }
   }
+  console.log(`■ この PC のブラウザで使うアドレス\n  http://localhost:${PORT}/?t=${TOKEN}\n`);
   console.log("このアプリを使う間は、PC の電源を入れたまま（スリープしない状態）にしてください。");
   console.log("終了するときは、この画面で Ctrl + C を押してください。\n");
 });

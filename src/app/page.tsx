@@ -36,6 +36,7 @@ export default function Home() {
   const [error, setError] = useState("");
   const [reading, setReading] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [pasted, setPasted] = useState("");
   const [copied, setCopied] = useState(false);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -57,29 +58,49 @@ export default function Home() {
     return () => clearInterval(id);
   }, [reading]);
 
-  function addResult(text: string) {
+  // 読み取り結果を追加する。成功したら true。
+  function addResult(text: string): boolean {
     const res = parsePasted(text);
-    if (!res.ok) return setError(res.error);
+    if (!res.ok) {
+      setError(res.error);
+      return false;
+    }
     setError("");
     setData((prev) => (prev ? mergeResults(prev, res.data) : res.data));
+    return true;
   }
+
+  // 1回に送る枚数（サーバーの MAX_IMAGES と合わせる）
+  const BATCH = 6;
 
   async function sendPhotos(files: FileList | null) {
     if (!files || files.length === 0) return;
+    const all = Array.from(files);
+    const batches: File[][] = [];
+    for (let i = 0; i < all.length; i += BATCH) batches.push(all.slice(i, i + BATCH));
     setError("");
     setReading(true);
+    setProgress({ done: 0, total: all.length });
+    let done = 0;
     try {
-      const images = await Promise.all(Array.from(files).slice(0, 6).map(shrink));
-      const r = await fetch("api/read", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-local-token": token },
-        body: JSON.stringify({ images }),
-      });
-      const body = await r.json();
-      if (!r.ok) setError(body.error ?? "読み取りに失敗しました。");
-      else addResult(body.text);
+      for (const batch of batches) {
+        const images = await Promise.all(batch.map(shrink));
+        const r = await fetch("api/read", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-local-token": token },
+          body: JSON.stringify({ images }),
+        });
+        const body = await r.json();
+        if (!r.ok || !addResult(body.text)) {
+          if (!r.ok) setError(body.error ?? "読み取りに失敗しました。");
+          if (done > 0) setError((e) => `${e}（${done} 枚目までは読み取り済みです。残りの写真を選び直してください）`);
+          return;
+        }
+        done += batch.length;
+        setProgress({ done, total: all.length });
+      }
     } catch {
-      setError("PCにつながりませんでした。PCでアプリが起動しているか、同じ Wi-Fi につながっているかを確認してください。");
+      setError("PCにつながりませんでした。PCでアプリが起動しているか、同じ Wi-Fi（または Tailscale）につながっているかを確認してください。");
     } finally {
       setReading(false);
       if (cameraRef.current) cameraRef.current.value = "";
@@ -155,7 +176,10 @@ export default function Home() {
 
       {mode === "local" && (
         <section className="space-y-3">
-          <p className="text-sm">ハガキを1枚ずつ撮影してください。撮影するとすぐに読み取りが始まり、下にお手本が出ます。</p>
+          <p className="text-sm">
+            ハガキを1枚ずつ撮影してください。撮影するとすぐに読み取りが始まり、下にお手本が出ます。
+            保存済みの写真は、何枚でもまとめて選べます。
+          </p>
           <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => sendPhotos(e.target.files)} />
           <input ref={libraryRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => sendPhotos(e.target.files)} />
           <div className="grid gap-2 sm:grid-cols-[2fr_1fr]">
@@ -176,7 +200,10 @@ export default function Home() {
           </div>
           {reading && (
             <p className="rounded bg-blue-50 p-3 text-sm text-blue-800" role="status">
-              PCの Claude Code が読み取っています…（{elapsed} 秒）　通常 30 秒〜1 分ほどかかります。
+              PCの Claude Code が読み取っています…（{elapsed} 秒）
+              {progress.total > 1 && <>　{progress.done} / {progress.total} 枚完了</>}
+              <br />
+              1回（最大 {BATCH} 枚）あたり 30 秒〜2 分ほどかかります。
             </p>
           )}
         </section>
