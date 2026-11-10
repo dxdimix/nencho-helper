@@ -3,25 +3,45 @@ import type { ReadResult } from "@/lib/schema";
 
 const yen = (n: number) => n.toLocaleString("ja-JP");
 
-function Cell({ children, warn }: { children: React.ReactNode; warn?: boolean }) {
-  return (
-    <td className={`border border-gray-400 px-2 py-1 align-top ${warn ? "bg-yellow-100" : ""}`}>
-      {children || <span className="text-gray-400">（空欄）</span>}
-    </td>
-  );
-}
+type Value = { v: React.ReactNode; warn?: boolean };
 
-function Head({ cols }: { cols: string[] }) {
+// PC では申告書と同じ横並びの表、スマホでは1件ずつのカードで表示する。
+function Records({ cols, rows }: { cols: string[]; rows: Value[][] }) {
+  const show = (x: Value) => x.v || <span className="text-gray-400">（空欄・自分で記入）</span>;
   return (
-    <thead>
-      <tr>
-        {cols.map((c) => (
-          <th key={c} className="border border-gray-400 bg-gray-100 px-2 py-1 text-left font-normal text-xs">
-            {c}
-          </th>
+    <>
+      <table className="hidden w-full border-collapse text-sm md:table">
+        <thead>
+          <tr>
+            {cols.map((c) => (
+              <th key={c} className="border border-gray-400 bg-gray-100 px-2 py-1 text-left text-xs font-normal">{c}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r, k) => (
+            <tr key={k}>
+              {r.map((x, j) => (
+                <td key={j} className={`border border-gray-400 px-2 py-1 align-top ${x.warn ? "bg-yellow-100" : ""}`}>{show(x)}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="space-y-3 md:hidden">
+        {rows.map((r, k) => (
+          <dl key={k} className="rounded border border-gray-400">
+            <div className="bg-gray-100 px-2 py-1 text-xs font-bold">{k + 1}件目</div>
+            {r.map((x, j) => (
+              <div key={j} className={`grid grid-cols-[8.5rem_1fr] gap-2 border-t border-gray-200 px-2 py-1.5 ${x.warn ? "bg-yellow-100" : ""}`}>
+                <dt className="text-xs text-gray-600">{cols[j]}</dt>
+                <dd className="text-sm">{show(x)}</dd>
+              </div>
+            ))}
+          </dl>
         ))}
-      </tr>
-    </thead>
+      </div>
+    </>
   );
 }
 
@@ -60,30 +80,20 @@ export function Guide({ data, calc }: { data: ReadResult; calc: Calculation }) {
 
       {data.life.length > 0 && (
         <Section title="生命保険料控除">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] border-collapse text-sm">
-              <Head cols={["保険会社等の名称", "保険等の種類", "保険期間又は年金支払期間", "保険等の契約者の氏名", "保険金等の受取人 氏名", "続柄", "新・旧の区分", "本年中に支払った保険料等の金額", "区分"]} />
-              <tbody>
-                {data.life.map((i, k) => (
-                  <tr key={k}>
-                    <Cell warn={low(i.confidence)}>{i.insurer}</Cell>
-                    <Cell warn={low(i.confidence)}>{i.policyType}</Cell>
-                    <Cell warn={low(i.confidence)}>{i.period}</Cell>
-                    <Cell warn={low(i.confidence)}>{i.contractor}</Cell>
-                    <Cell warn={low(i.confidence)}>{i.beneficiary}</Cell>
-                    <Cell>{i.beneficiaryRelation}</Cell>
-                    <Cell warn={low(i.confidence)}>{i.system}</Cell>
-                    <Cell warn={low(i.confidence)}>
-                      <span className="font-mono">{yen(i.amount)}</span>
-                      {i.amountBasis && <div className="text-xs text-gray-500">{i.amountBasis}</div>}
-                    </Cell>
-                    <Cell>{i.category}</Cell>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="mt-1 text-xs text-gray-500">「区分」の列は申告書にはありません。どの合計欄に入るかの目安です。</p>
+          <Records
+            cols={["保険会社等の名称", "保険等の種類", "保険期間又は年金支払期間", "保険等の契約者の氏名", "保険金等の受取人 氏名", "続柄", "新・旧の区分", "本年中に支払った保険料等の金額", "区分（目安）"]}
+            rows={data.life.map((i) => {
+              const w = low(i.confidence);
+              return [
+                { v: i.insurer, warn: w }, { v: i.policyType, warn: w }, { v: i.period, warn: w },
+                { v: i.contractor, warn: w }, { v: i.beneficiary, warn: w }, { v: i.beneficiaryRelation },
+                { v: i.system, warn: w },
+                { v: <><span className="font-mono">{yen(i.amount)}</span>{i.amountBasis && <span className="ml-1 text-xs text-gray-500">{i.amountBasis}</span>}</>, warn: w },
+                { v: i.category },
+              ];
+            })}
+          />
+          <p className="mt-1 text-xs text-gray-500">「区分（目安）」は申告書にはありません。どの合計欄に入るかの目安です。</p>
           <div className="mt-3 grid gap-3 md:grid-cols-3">
             <div>
               <h4 className="text-sm font-bold">一般の生命保険料</h4>
@@ -117,25 +127,18 @@ export function Guide({ data, calc }: { data: ReadResult; calc: Calculation }) {
 
       {data.earthquake.length > 0 && (
         <Section title="地震保険料控除">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] border-collapse text-sm">
-              <Head cols={["保険会社等の名称", "保険等の種類（目的）", "保険期間", "保険等の契約者の氏名", "居住者等の氏名", "続柄", "地震保険料又は旧長期損害保険料区分", "控除対象金額"]} />
-              <tbody>
-                {data.earthquake.map((i, k) => (
-                  <tr key={k}>
-                    <Cell warn={low(i.confidence)}>{i.insurer}</Cell>
-                    <Cell warn={low(i.confidence)}>{i.policyType}</Cell>
-                    <Cell warn={low(i.confidence)}>{i.period}</Cell>
-                    <Cell warn={low(i.confidence)}>{i.contractor}</Cell>
-                    <Cell>{i.resident}</Cell>
-                    <Cell>{i.residentRelation}</Cell>
-                    <Cell warn={low(i.confidence)}>{i.category === "地震" ? "地震" : "旧長期"}</Cell>
-                    <Cell warn={low(i.confidence)}><span className="font-mono">{yen(i.amount)}</span></Cell>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Records
+            cols={["保険会社等の名称", "保険等の種類（目的）", "保険期間", "保険等の契約者の氏名", "居住者等の氏名", "続柄", "地震保険料又は旧長期損害保険料区分", "控除対象金額"]}
+            rows={data.earthquake.map((i) => {
+              const w = low(i.confidence);
+              return [
+                { v: i.insurer, warn: w }, { v: i.policyType, warn: w }, { v: i.period, warn: w },
+                { v: i.contractor, warn: w }, { v: i.resident }, { v: i.residentRelation },
+                { v: i.category === "地震" ? "地震" : "旧長期", warn: w },
+                { v: <span className="font-mono">{yen(i.amount)}</span>, warn: w },
+              ];
+            })}
+          />
           <div className="mt-3">
             <Total label="地震保険料の金額の合計額" value={calc.earthquake.quakeTotal} />
             <Total label="旧長期損害保険料の金額の合計額" value={calc.earthquake.oldLongTotal} />
@@ -148,22 +151,16 @@ export function Guide({ data, calc }: { data: ReadResult; calc: Calculation }) {
 
       {data.social.length > 0 && (
         <Section title="社会保険料控除">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[560px] border-collapse text-sm">
-              <Head cols={["社会保険の種類", "保険料支払先の名称", "保険料を負担することになっている人 氏名", "続柄", "あなたが本年中に支払った保険料"]} />
-              <tbody>
-                {data.social.map((i, k) => (
-                  <tr key={k}>
-                    <Cell warn={low(i.confidence)}>{i.kind}</Cell>
-                    <Cell warn={low(i.confidence)}>{i.payee}</Cell>
-                    <Cell>{i.burdenPerson}</Cell>
-                    <Cell>{i.burdenRelation}</Cell>
-                    <Cell warn={low(i.confidence)}><span className="font-mono">{yen(i.amount)}</span></Cell>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Records
+            cols={["社会保険の種類", "保険料支払先の名称", "保険料を負担することになっている人 氏名", "続柄", "あなたが本年中に支払った保険料"]}
+            rows={data.social.map((i) => {
+              const w = low(i.confidence);
+              return [
+                { v: i.kind, warn: w }, { v: i.payee, warn: w }, { v: i.burdenPerson }, { v: i.burdenRelation },
+                { v: <span className="font-mono">{yen(i.amount)}</span>, warn: w },
+              ];
+            })}
+          />
           <div className="mt-3 rounded bg-blue-50 p-2">
             <Total label="社会保険料控除 合計" value={calc.social.deduction} />
           </div>
@@ -172,17 +169,13 @@ export function Guide({ data, calc }: { data: ReadResult; calc: Calculation }) {
 
       {data.smallBiz.length > 0 && (
         <Section title="小規模企業共済等掛金控除">
-          <table className="w-full border-collapse text-sm">
-            <Head cols={["種類", "あなたが本年中に支払った掛金"]} />
-            <tbody>
-              {data.smallBiz.map((i, k) => (
-                <tr key={k}>
-                  <Cell warn={low(i.confidence)}>{i.kind}</Cell>
-                  <Cell warn={low(i.confidence)}><span className="font-mono">{yen(i.amount)}</span></Cell>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <Records
+            cols={["種類", "あなたが本年中に支払った掛金"]}
+            rows={data.smallBiz.map((i) => {
+              const w = low(i.confidence);
+              return [{ v: i.kind, warn: w }, { v: <span className="font-mono">{yen(i.amount)}</span>, warn: w }];
+            })}
+          />
           <div className="mt-3 rounded bg-blue-50 p-2">
             <Total label="小規模企業共済等掛金控除 合計" value={calc.smallBiz.deduction} />
           </div>
