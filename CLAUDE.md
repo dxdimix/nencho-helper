@@ -19,7 +19,7 @@ claude.ai などのブラウザ画面の自動操作は規約違反なので行�
 - データベースは使わない。写真と読み取り結果は React の状態（メモリ）にだけ持つ。
 - localStorage / IndexedDB / Cookie に保存しない。画面を閉じたら消える状態にする。
 - 画面からの通信は、自宅PCサーバー（同一オリジンの api/*）だけ。解析ツールや外部フォントなどを追加しない。
-- 自宅PCサーバーは写真を一時フォルダにだけ書き、読み取り後すぐ削除する。claude は --no-session-persistence と --tools Read で動かす。
+- 自宅PCサーバーは写真を一時フォルダにだけ書き、読み取り後すぐ削除する。claude は --no-session-persistence と --tools Read で動かし、--allowedTools は付けない（読めるのを一時フォルダ内に限るため）。
 - 写真の中身や読み取り結果をログ（console.log）に出さない。
 
 ## 技術構成

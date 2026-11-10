@@ -83,7 +83,7 @@ function serveStatic(req, res) {
   if (!fs.existsSync(file) && fs.existsSync(file + ".html")) file += ".html";
   if (!fs.existsSync(file)) return sendJson(res, 404, { error: "not found" });
   res.writeHead(200, { "Content-Type": TYPES[path.extname(file)] || "application/octet-stream" });
-  fs.createReadStream(file).pipe(res);
+  fs.createReadStream(file).on("error", () => res.end()).pipe(res);
 }
 
 function readBody(req) {
@@ -93,7 +93,7 @@ function readBody(req) {
     req.on("data", (c) => {
       size += c.length;
       if (size > MAX_BODY) {
-        reject(new Error("too large"));
+        reject(new Error("写真のデータが大きすぎます。枚数を減らして送ってください。"));
         req.destroy();
       } else chunks.push(c);
     });
@@ -108,8 +108,9 @@ function runClaude(dir, files) {
       "-p",
       "--output-format", "text",
       "--model", MODEL,
+      // 使えるのはファイルを読む機能だけ。--allowedTools を付けないことで、
+      // 読めるのは作業フォルダ（写真だけを入れた一時フォルダ）の中に限られる。
       "--tools", "Read",
-      "--allowedTools", "Read",
       "--no-session-persistence",
       "--strict-mcp-config",
     ];
@@ -186,6 +187,16 @@ async function handleRead(req, res) {
 }
 
 const server = http.createServer((req, res) => {
+  try {
+    route(req, res);
+  } catch {
+    // 不正なアドレスなどでサーバーが止まらないようにする
+    if (!res.headersSent) sendJson(res, 400, { error: "bad request" });
+    else res.end();
+  }
+});
+
+function route(req, res) {
   const url = new URL(req.url, "http://x");
   if (url.pathname.startsWith("/api/")) {
     if (req.headers["x-local-token"] !== TOKEN) return sendJson(res, 401, { error: "URL が正しくありません。PCの画面に出ているアドレスを開き直してください。" });
@@ -194,7 +205,7 @@ const server = http.createServer((req, res) => {
     return sendJson(res, 404, { error: "not found" });
   }
   serveStatic(req, res);
-});
+}
 
 // Tailscale のアドレス（100.64.0.0〜100.127.255.255）かどうか
 function isTailscale(ip) {

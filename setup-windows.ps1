@@ -96,7 +96,10 @@ Expand-Archive -Path $Zip -DestinationPath $Tmp
 $Src = Join-Path $Tmp "nencho-helper-main"
 $Token = Join-Path $AppDir ".local-token"
 $SavedToken = if (Test-Path $Token) { Get-Content $Token -Raw } else { $null }
-if (Test-Path $AppDir) { Remove-Item $AppDir -Recurse -Force }
+if (Test-Path $AppDir) {
+  try { Remove-Item $AppDir -Recurse -Force }
+  catch { Fail "アプリが起動中のため更新できません。アプリの黒い画面を閉じてから、もう一度この1行を実行してください。" }
+}
 Move-Item $Src $AppDir
 if ($SavedToken) { Set-Content -Path $Token -Value $SavedToken.Trim() -NoNewline }
 # 起動時の自動更新が、今入れた版を最新と判断できるよう記録する

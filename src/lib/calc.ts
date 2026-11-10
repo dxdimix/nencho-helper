@@ -77,6 +77,17 @@ export function calculate(r: ReadResult) {
     warnings.push("介護医療保険料に「旧」の契約があります。旧制度の医療保険は「一般」に入れるのが正しいので、ハガキの区分を確認してください。");
   }
 
+  // 同じハガキを2回撮ると、金額が二重に計算される。同じ内容の項目があれば知らせる。
+  const keys = [
+    ...r.life.map((i) => `${i.insurer}|${i.policyType}|${i.category}|${i.system}|${i.amount}`),
+    ...r.earthquake.map((i) => `${i.insurer}|${i.policyType}|${i.category}|${i.amount}`),
+    ...r.social.map((i) => `${i.kind}|${i.payee}|${i.amount}`),
+    ...r.smallBiz.map((i) => `${i.kind}|${i.amount}`),
+  ];
+  if (new Set(keys).size !== keys.length) {
+    warnings.push("同じ内容の項目が2つ以上あります。同じハガキを2回読み取っていないか確認してください。2回読み取っていた場合は「すべて消去」を押してから、読み取り直してください。");
+  }
+
   return { general, pension, care, lifeDeduction, earthquake, social, smallBiz, warnings };
 }
 

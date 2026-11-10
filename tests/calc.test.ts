@@ -71,6 +71,38 @@ describe("貼り付けの読み込み", () => {
     const b = ReadResult.parse({ social: [{ kind: "国民年金保険料", payee: "日本年金機構", amount: 2000, confidence: "高" }] });
     expect(calculate(mergeResults(a, b)).social.deduction).toBe(3000);
   });
+  it("文字の金額や null を受け入れる", () => {
+    const res = parsePasted(JSON.stringify({
+      life: [{ insurer: "A生命", policyType: "終身", period: null, contractor: "本人", beneficiary: "本人",
+        category: "一般", system: "新", amount: "36,000円", confidence: "高い" }],
+    }));
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.data.life[0].amount).toBe(36000);
+      expect(res.data.life[0].period).toBe("");
+      expect(res.data.life[0].confidence).toBe("低");
+    }
+  });
+  it("区分や金額が読めない項目は、全体を止めずに「書かないもの」に移す", () => {
+    const res = parsePasted(JSON.stringify({
+      life: [
+        { insurer: "A生命", policyType: "終身", period: "終身", contractor: "本人", beneficiary: "本人", category: "一般", system: "新", amount: 30000, confidence: "高" },
+        { insurer: "B生命", policyType: "医療", period: "終身", contractor: "本人", beneficiary: "本人", category: "不明", system: "新", amount: 20000, confidence: "低" },
+        { insurer: "C生命", policyType: "終身", period: "終身", contractor: "本人", beneficiary: "本人", category: "一般", system: "旧", amount: "", confidence: "低" },
+      ],
+    }));
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.data.life).toHaveLength(1);
+      expect(res.data.excluded).toHaveLength(2);
+      expect(res.data.excluded[0].description).toContain("B生命");
+    }
+  });
+  it("同じ項目が2つあると警告する", () => {
+    const one = { kind: "国民年金保険料", payee: "日本年金機構", amount: 1000, confidence: "高" };
+    const r = ReadResult.parse({ social: [one, one] });
+    expect(calculate(r).warnings.join()).toContain("同じハガキを2回");
+  });
   it("形式が違えばエラーを返す", () => {
     expect(parsePasted("読み取れませんでした").ok).toBe(false);
   });
