@@ -317,10 +317,11 @@ export function dependentsForm(f: Family, year = 2027) {
   // 寡婦・ひとり親は、本人の所得の見積額が500万円以下の場合だけ
   if (f.self.widow !== "なし")
     c.push(selfIncome <= 5_000_000 ? f.self.widow : `${f.self.widow}（所得の見積額が500万円を超えるため対象外）`);
+  // 勤労学生：所得の見積額が89万円以下で、そのうち給与所得など以外の所得が10万円以下
   const student = f.self.workingStudent
-    ? selfIncome <= 890_000
+    ? selfIncome <= 890_000 && f.self.otherIncome <= 100_000
       ? "勤労学生"
-      : "勤労学生（所得の見積額が89万円を超えるため対象外）"
+      : "勤労学生（対象外：所得の見積額が89万円以下で、そのうち給与以外の所得が10万円以下の人だけが対象です）"
     : null;
   if (student) c.push(student);
 
@@ -332,6 +333,26 @@ export function dependentsForm(f: Family, year = 2027) {
     c,
     selfIncome,
   };
+}
+
+/** 生年月日を和暦で表す（例：平成18年3月3日） */
+export function toWareki(birth: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birth);
+  if (!m) return "";
+  const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const ymd = y * 10000 + mo * 100 + d;
+  const [era, base] = ymd >= 20190501 ? ["令和", 2018] : ymd >= 19890108 ? ["平成", 1988] : ["昭和", 1925];
+  const n = y - base;
+  return `${era}${n === 1 ? "元" : n}年${mo}月${d}日`;
+}
+
+/** 保険料控除申告書の「☆年齢23歳未満の扶養親族」欄に書く人（1人でよい） */
+export function under23DependentFor(f: Family, year = 2026, incomeLimit = 620_000) {
+  const p = f.dependents.find((d) => {
+    const age = ageAtYearEnd(d.birth, year);
+    return age !== null && age < 23 && totalIncome(d) <= incomeLimit;
+  });
+  return p ? { person: p, income: totalIncome(p), birthWareki: toWareki(p.birth) } : null;
 }
 
 /**

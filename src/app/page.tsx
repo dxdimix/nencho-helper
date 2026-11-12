@@ -8,7 +8,7 @@ import { Glossary } from "@/components/Glossary";
 import { Guide } from "@/components/Guide";
 import { HousingGuide } from "@/components/HousingGuide";
 import { ReviewStep, type Timing } from "@/components/ReviewStep";
-import { emptySelf, hasUnder23Dependent, type Family } from "@/lib/family";
+import { emptySelf, hasUnder23Dependent, under23DependentFor, type Family } from "@/lib/family";
 import { calculate } from "@/lib/calc";
 import { READ_PROMPT } from "@/lib/prompt.mjs";
 import { mergeResults, parsePasted, type ReadResult } from "@/lib/schema";
@@ -67,7 +67,10 @@ export default function Home() {
   const [timing, setTiming] = useState<Timing | null>(null);
   const under23IncomeLimit = timing === "11月以前" ? 580_000 : 620_000;
   // 家族の生年月日が入力されていれば、23歳未満の扶養親族の有無を自動で判定する
-  const autoUnder23 = family.dependents.some((d) => d.birth) ? hasUnder23Dependent(family, 2026, under23IncomeLimit) : null;
+  // （生年月日が空欄の家族がいると判定できないので、そのときはチェックを手で付けてもらう）
+  const allBirths = family.dependents.length > 0 && family.dependents.every((d) => d.birth);
+  const autoUnder23 = allBirths ? hasUnder23Dependent(family, 2026, under23IncomeLimit) : null;
+  const missingBirth = family.dependents.some((d) => !d.birth);
   const effectiveUnder23 = autoUnder23 ?? under23;
   const [pasted, setPasted] = useState("");
   const [copied, setCopied] = useState(false);
@@ -374,10 +377,13 @@ export default function Home() {
               <span className="block text-xs text-gray-600">
                 {autoUnder23 !== null
                   ? `「家族と収入」タブの入力から自動で判定しています（所得${timing === "11月以前" ? "58" : "62"}万円以下の家族が対象）。`
-                  : "令和8年分は、該当すると一般の生命保険料（新契約）の控除の上限が4万円から6万円に上がります。子どもなどを扶養しているときはチェックしてください。"}
+                  : `${missingBirth ? "「家族と収入」タブで生年月日が空欄の家族がいるため、自動では判定できません。" : ""}令和8年分は、該当すると一般の生命保険料（新契約）の控除の上限が4万円から6万円に上がります。子どもなどを扶養しているときはチェックしてください。`}
               </span>
             </span>
           </label>
+          {effectiveUnder23 && data.life.some((i) => i.category === "一般" && i.system === "新") && (
+            <Under23Box family={family} incomeLimit={under23IncomeLimit} />
+          )}
           <div className="grid grid-cols-2 overflow-hidden rounded border border-gray-400 text-sm">
             {(["image", "table"] as const).map((v) => (
               <button key={v} onClick={() => setView(v)} className={`py-2 ${view === v ? "bg-blue-600 text-white" : "bg-white"}`}>
@@ -422,5 +428,28 @@ export default function Home() {
         {mode === "local" ? `自宅PCモード${version ? `・版 ${version}` : ""}` : mode === "paste" ? "チャット貼り付けモード" : ""}
       </footer>
     </main>
+  );
+}
+
+// 23歳未満の特例を使うときに、申告書の「☆年齢23歳未満の扶養親族」欄に書く内容
+function Under23Box({ family, incomeLimit }: { family: Family; incomeLimit: number }) {
+  const who = under23DependentFor(family, 2026, incomeLimit);
+  return (
+    <div className="rounded border-2 border-blue-400 bg-blue-50 p-3 text-sm">
+      <p className="font-bold">申告書の左下「☆年齢23歳未満の扶養親族」欄も書いてください</p>
+      <p className="mt-1">23歳未満の特例を使うときは、その家族の情報を書く必要があります。2人以上いる場合は、どれか1人だけ書けば大丈夫です。</p>
+      {who ? (
+        <ul className="mt-2 list-disc pl-5">
+          <li>氏名（フリガナ）：{who.person.label || who.person.relation} の氏名</li>
+          <li>個人番号：その人のマイナンバー（勤務先によっては不要）</li>
+          <li>生年月日：{who.birthWareki}</li>
+          <li>あなたとの続柄：{who.person.relation}</li>
+          <li>本年中の合計所得金額の見積額：{who.income.toLocaleString("ja-JP")} 円</li>
+          <li>住所：一緒に住んでいなければ、その人の住所</li>
+        </ul>
+      ) : (
+        <p className="mt-2">氏名・個人番号・生年月日（平成16年1月2日以後生まれ）・続柄・本年中の合計所得金額の見積額を書きます。「家族と収入」タブで入力すると、書く内容をここに表示します。</p>
+      )}
+    </div>
   );
 }

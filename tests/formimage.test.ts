@@ -35,3 +35,13 @@ describe("基礎控除申告書の画像に書く内容", () => {
     expect(texts.filter((t) => t === "✓")).toHaveLength(3); // 判定・区分Ⅱ・所得金額調整控除の要件
   });
 });
+
+describe("配偶者控除等を受けないときは、配偶者の欄と区分Ⅰを書かない", () => {
+  it("配偶者の所得が133万円を超える", () => {
+    const f = { self: { ...emptySelf(), salary: 6_000_000 }, spouse: { ...newPerson("配偶者"), birth: "1985-01-01", salary: 3_000_000 }, dependents: [] };
+    const texts = buildBasicOps(f).ops.flatMap((o) => (o.t === "text" ? [o.s] : []));
+    expect(texts).not.toContain("A");
+    expect(texts).not.toContain("3,000,000");
+    expect(texts.filter((t) => t === "✓")).toHaveLength(1); // 基礎控除の判定だけ
+  });
+});

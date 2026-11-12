@@ -58,7 +58,7 @@ export function defaultRate(start: string): number | null {
 export type HousingResult = {
   /** あなたの負担分の年末残高 */
   myBalance: number | null;
-  /** 取得対価の額から求めた上限（居住用・負担割合を反映） */
+  /** 取得対価の額（負担割合を反映） */
   costCap: number | null;
   /** 計算に使う残高（小さい方） */
   target: number | null;
@@ -90,9 +90,15 @@ export function calcHousing(input: HousingInput, year = 2026): HousingResult {
   }
 
   const share = input.sharePercent / 100;
+  // 居住用の割合は、申告書の説明どおり90%以上なら100%として扱う
+  const residential = input.residentialPercent >= 90 ? 1 : input.residentialPercent / 100;
   const myBalance = input.balance === null ? null : Math.floor(input.balance * share);
-  const costCap = input.acquisitionCost === null ? null : Math.floor(input.acquisitionCost * (input.residentialPercent / 100) * share);
-  const target = myBalance === null ? null : costCap === null ? myBalance : Math.min(myBalance, costCap);
+  const costCap = input.acquisitionCost === null ? null : Math.floor(input.acquisitionCost * share);
+  // 年末残高と取得対価の額の小さい方に、居住用の割合を掛ける
+  const target = myBalance === null ? null : Math.floor((costCap === null ? myBalance : Math.min(myBalance, costCap)) * residential);
+  if (input.residentialPercent < 100) {
+    warnings.push("店舗などとの兼用住宅の居住用の割合は、申告書の説明（小数点以下第4位まで求めて切り上げ、90%以上は100%）に従って確認してください。");
+  }
   const raw = target === null || input.ratePercent === null ? null : Math.floor((target * input.ratePercent) / 100 / 100) * 100;
   const amount = raw === null ? null : input.limit === null ? raw : Math.min(raw, input.limit);
   if (input.limit === null && raw !== null) {

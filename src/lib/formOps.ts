@@ -175,11 +175,13 @@ export function buildBasicOps(f: Family): { ops: Op[]; overflow: string[] } {
   ops.push(amount(b.total, 303, 210));
   const row = BASIC_ROW_LABELS.indexOf(b.judgeRow);
   if (row >= 0) ops.push(check(85.5, BASIC_CHECK_Y[row]));
-  if (b.kubun1 && f.spouse) ops.push({ t: "text", s: b.kubun1, x: 280, y: 253, w: 40, size: 11, align: "center" });
+  // 区分Ⅰと配偶者の欄は、配偶者控除等を受けられるときだけ書く（受けられないときは配偶者控除等申告書を書かない）
+  const spouseApplies = !!(f.spouse && r.spouse && r.spouse.kind);
+  if (b.kubun1 && spouseApplies) ops.push({ t: "text", s: b.kubun1, x: 280, y: 253, w: 40, size: 11, align: "center" });
   ops.push(amount(b.amount, 305, 308));
 
   // 配偶者
-  if (f.spouse && r.spouse) {
+  if (f.spouse && r.spouse && spouseApplies) {
     const s = r.spouse;
     ops.push(amount(f.spouse.salary, 476.8, 225));
     ops.push(amount(s.income - f.spouse.otherIncome, 563, 225));

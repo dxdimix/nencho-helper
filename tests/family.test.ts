@@ -10,6 +10,8 @@ import {
   salaryIncome,
   specificRelativeAmount,
   spouseDeduction,
+  toWareki,
+  under23DependentFor,
   type Family,
   type Person,
 } from "../src/lib/family";
@@ -152,5 +154,22 @@ describe("寡婦・ひとり親", () => {
     const f = (salary: number): Family => ({ self: { ...emptySelf(), salary, widow: "ひとり親" }, spouse: null, dependents: [] });
     expect(dependentsForm(f(6_000_000)).c).toEqual(["ひとり親"]); // 所得436万円
     expect(dependentsForm(f(8_000_000)).c[0]).toContain("対象外"); // 所得620万円
+  });
+});
+
+describe("レビューで見つかった点", () => {
+  it("勤労学生は、給与以外の所得が10万円を超えると対象外", () => {
+    const f = (other: number): Family => ({ self: { ...emptySelf(), salary: 1_000_000, otherIncome: other, workingStudent: true }, spouse: null, dependents: [] });
+    expect(dependentsForm(f(50_000)).c).toEqual(["勤労学生"]);
+    expect(dependentsForm(f(150_000)).c[0]).toContain("対象外");
+  });
+  it("生年月日を和暦にする", () => {
+    expect(toWareki("2006-03-03")).toBe("平成18年3月3日");
+    expect(toWareki("2019-05-01")).toBe("令和元年5月1日");
+    expect(toWareki("1985-05-05")).toBe("昭和60年5月5日");
+  });
+  it("☆欄に書く23歳未満の扶養親族を1人選ぶ", () => {
+    const f: Family = { self: emptySelf(), spouse: null, dependents: [{ ...newPerson(), label: "長女", birth: "1990-01-01" }, { ...newPerson(), label: "次女", birth: "2010-07-07" }] };
+    expect(under23DependentFor(f)?.person.label).toBe("次女");
   });
 });

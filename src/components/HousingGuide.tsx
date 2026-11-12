@@ -83,7 +83,7 @@ export function HousingGuide({ items }: { items: HousingItem[] }) {
           <summary className="cursor-pointer text-gray-600">あてはまる人だけ：取得対価・店舗併用・夫婦でのローン</summary>
           <div className="mt-2 space-y-3">
             <NumField label="家屋・土地の取得対価の額（申告書に記載）" value={input.acquisitionCost} onChange={(v) => set("acquisitionCost", v)} unit="円" hint="年末残高より小さい場合だけ、計算に使います" />
-            <NumField label="居住用の割合" value={input.residentialPercent} onChange={(v) => set("residentialPercent", v ?? 100)} unit="%" hint="店舗や事務所と兼用でなければ 100" />
+            <NumField label="居住用の割合" value={input.residentialPercent} onChange={(v) => set("residentialPercent", v ?? 100)} unit="%" hint="店舗や事務所と兼用でなければ 100（90以上は100として計算します）" />
             <NumField label="あなたの負担割合" value={input.sharePercent} onChange={(v) => set("sharePercent", v ?? 100)} unit="%" hint="夫婦で借りた（連帯債務・ペアローン）場合だけ。ふつうは 100" />
           </div>
         </details>
@@ -103,8 +103,8 @@ export function HousingGuide({ items }: { items: HousingItem[] }) {
         ) : (
           <>
             <Row label="あなたの分の年末残高" value={`${yen(r.myBalance)} 円`} />
-            {r.costCap !== null && <Row label="取得対価の額から求めた上限" value={`${yen(r.costCap)} 円`} />}
-            <Row label="計算に使う残高（小さい方）" value={`${yen(r.target)} 円`} />
+            {r.costCap !== null && <Row label="取得対価の額" value={`${yen(r.costCap)} 円`} />}
+            <Row label={`計算に使う残高（小さい方${input.residentialPercent < 90 ? ` × 居住用 ${input.residentialPercent}%` : ""}）`} value={`${yen(r.target)} 円`} />
             <Row label={`× 控除率 ${input.ratePercent}%（100円未満切捨て）`} value={`${yen(r.raw)} 円`} />
             <Row label="住宅借入金等特別控除額" value={`${yen(r.amount)} 円`} strong />
             <p className="mt-2 text-xs text-gray-600">

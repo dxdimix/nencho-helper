@@ -47,11 +47,17 @@ export function BasicGuide({ family }: { family: Family }) {
         <Row label="区分Ⅰ" value={b.kubun1 ? `（${b.kubun1}）` : "記入しない（配偶者控除等は受けられません）"} />
         <Row label="基礎控除の額" value={`${yen(b.amount)} 円`} strong />
         {b.adjustment > 0 && <Note>所得金額調整控除（{yen(b.adjustment)} 円）を差し引いた後の給与所得で計算しています。</Note>}
-        {!family.spouse && <Note>配偶者がいない場合、区分Ⅰ欄は書かなくてかまいません。</Note>}
+        {(!family.spouse || !r.spouse?.kind) && <Note>配偶者控除・配偶者特別控除を受けない場合（配偶者がいない場合を含む）、区分Ⅰ欄は書かなくてかまいません。</Note>}
+        {family.self.salary > 20_000_000 && (
+          <p className="mt-2 rounded bg-yellow-50 p-2 text-sm">給与の収入が2,000万円を超える人は、年末調整の対象外です。来年の2月〜3月に確定申告をしてください。</p>
+        )}
       </Box>
 
       {family.spouse && r.spouse && (
         <Box title="配偶者控除等申告書">
+          {!family.spouse.birth && (
+            <p className="mb-2 rounded bg-yellow-50 p-2 text-sm">配偶者の生年月日が入力されていません。70歳以上（昭和32年1月1日以前生まれ）の場合は控除額が変わるので、「家族と収入」タブで入力してください。</p>
+          )}
           <Row label="配偶者の本年中の合計所得金額の見積額" value={`${yen(r.spouse.income)} 円`} />
           <Row label="区分Ⅱ（判定）" value={r.spouse.kubun2 ?? "該当なし"} />
           {r.spouse.kind ? (
@@ -114,7 +120,6 @@ export function DependentsGuide({ family }: { family: Family }) {
           <>
             <p className="text-sm">配偶者を記入します。</p>
             <Row label="令和9年中の所得の見積額" value={`${yen(r.spouseA.income)} 円`} />
-            {r.spouseA.elderly && <Row label="老人控除対象配偶者" value="該当（昭33.1.1以前生）" />}
           </>
         ) : (
           <p className="text-sm">{r.spouseA.reason}</p>

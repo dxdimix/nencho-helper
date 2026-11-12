@@ -23,6 +23,11 @@ describe("住宅ローン控除", () => {
     const capped = calcHousing({ balance: 40_000_000, acquisitionCost: null, residentialPercent: 100, sharePercent: 100, ratePercent: 1, limit: 400_000, residenceStart: "2019-04-01" });
     expect(capped.amount).toBe(400_000);
   });
+  it("居住用の割合は、残高と取得対価の小さい方に掛ける（90%以上は100%）", () => {
+    const base = { acquisitionCost: 40_000_000, sharePercent: 100, ratePercent: 0.7, limit: null, residenceStart: "2023-04-01" };
+    expect(calcHousing({ ...base, balance: 30_000_000, residentialPercent: 50 }).amount).toBe(105_000); // 3,000万×50%×0.7%
+    expect(calcHousing({ ...base, balance: 30_000_000, residentialPercent: 92 }).amount).toBe(210_000); // 90%以上は100%
+  });
   it("取得対価の額が残高より小さければ、取得対価の額を使う。負担割合も反映する", () => {
     const r = calcHousing({ balance: 30_000_000, acquisitionCost: 25_000_000, residentialPercent: 100, sharePercent: 50, ratePercent: 0.7, limit: null, residenceStart: "2023-04-01" });
     expect(r.myBalance).toBe(15_000_000);
