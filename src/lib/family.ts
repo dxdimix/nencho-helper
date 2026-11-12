@@ -332,7 +332,14 @@ export function dependentsForm(f: Family, year = 2027) {
   };
 }
 
-/** 保険料控除申告書の「年齢23歳未満の扶養親族」の判定（令和8年分） */
-export function hasUnder23Dependent(f: Family, year = 2026): boolean {
-  return f.dependents.some((p) => classify(p, year).isUnder23Dependent);
+/**
+ * 保険料控除申告書の「年齢23歳未満の扶養親族」の判定（令和8年分）。
+ * 所得の基準は62万円以下。ただし勤務先が令和8年11月30日以前に年末調整を行う場合は、
+ * 国税庁の案内により58万円以下に読み替える（incomeLimit に 580_000 を渡す）。
+ */
+export function hasUnder23Dependent(f: Family, year = 2026, incomeLimit = 620_000): boolean {
+  return f.dependents.some((p) => {
+    const age = ageAtYearEnd(p.birth, year);
+    return age !== null && age < 23 && totalIncome(p) <= incomeLimit;
+  });
 }

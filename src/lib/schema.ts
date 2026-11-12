@@ -71,6 +71,57 @@ export const SmallBizItem = z.object({
   note: Text,
 });
 
+/** 金額。読めない値は null のまま受け入れる（住宅ローン関係は、あとで画面で入力してもらう） */
+const OptionalYen = z.preprocess((v) => {
+  if (typeof v === "number") return Math.round(v);
+  if (typeof v === "string") {
+    const n = Number(v.replace(/[,，円¥￥\s]/g, ""));
+    return v.trim() !== "" && Number.isFinite(n) ? Math.round(n) : null;
+  }
+  return null;
+}, z.number().int().nonnegative().nullable());
+
+/** 割合（%）。"0.7%" のような文字も受け入れる */
+const OptionalPercent = z.preprocess((v) => {
+  if (typeof v === "number") return v;
+  if (typeof v === "string") {
+    const n = Number(v.replace(/[%％\s]/g, ""));
+    return v.trim() !== "" && Number.isFinite(n) ? n : null;
+  }
+  return null;
+}, z.number().nonnegative().nullable());
+
+// 住宅ローン控除の書類（金融機関の「年末残高等証明書」、税務署から届く「住宅借入金等特別控除申告書」）
+export const HousingItem = z.object({
+  docKind: z.preprocess((v) => (v === "控除申告書" ? "控除申告書" : "残高証明書"), z.enum(["残高証明書", "控除申告書"])),
+  lender: Text, // 金融機関名
+  yearEndBalance: OptionalYen, // 年末残高
+  residenceStart: Text, // 居住開始年月日（書かれていれば）
+  acquisitionCost: OptionalYen, // 家屋・土地の取得対価の額（申告書に書かれていれば）
+  ratePercent: OptionalPercent, // 控除率（1 または 0.7 など。申告書に書かれていれば）
+  limit: OptionalYen, // 控除限度額（「最高○○円」。申告書に書かれていれば）
+  houseType: Text, // 住宅の区分（認定住宅・省エネ基準適合住宅・一般など。書かれていれば）
+  confidence: Confidence,
+  note: Text,
+});
+
+export const OTHER_DOC_TYPES = [
+  "源泉徴収票",
+  "医療費の領収書・通知",
+  "ふるさと納税・寄附金の受領証明書",
+  "株・投資信託などの書類",
+  "保険の満期・解約・契約内容の通知",
+  "年金の通知",
+  "自動車保険・火災保険などの案内",
+  "その他",
+] as const;
+
+// 年末調整の控除証明書ではない書類（写真が送られてきたときに案内するため）
+export const OtherDoc = z.object({
+  docType: z.preprocess((v) => ((OTHER_DOC_TYPES as readonly unknown[]).includes(v) ? v : "その他"), z.enum(OTHER_DOC_TYPES)),
+  summary: Text, // どんな書類か（例：〇〇病院の領収書）
+});
+
 export const ExcludedItem = z.object({
   description: Text,
   reason: Text,
@@ -82,11 +133,15 @@ export const ReadResult = z.object({
   social: z.array(SocialItem).default([]),
   smallBiz: z.array(SmallBizItem).default([]),
   excluded: z.array(ExcludedItem).default([]),
+  housing: z.array(HousingItem).default([]),
+  otherDocs: z.array(OtherDoc).default([]),
 });
 
 export type ReadResult = z.infer<typeof ReadResult>;
 export type LifeItem = z.infer<typeof LifeItem>;
 export type EarthquakeItem = z.infer<typeof EarthquakeItem>;
+export type HousingItem = z.infer<typeof HousingItem>;
+export type OtherDoc = z.infer<typeof OtherDoc>;
 
 // 貼り付けられた文字から JSON 部分を取り出して検証する。
 export function parsePasted(text: string):
@@ -125,6 +180,8 @@ export function mergeResults(a: ReadResult, b: ReadResult): ReadResult {
     social: [...a.social, ...b.social],
     smallBiz: [...a.smallBiz, ...b.smallBiz],
     excluded: [...a.excluded, ...b.excluded],
+    housing: [...a.housing, ...b.housing],
+    otherDocs: [...a.otherDocs, ...b.otherDocs],
   };
 }
 

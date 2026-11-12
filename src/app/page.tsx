@@ -4,7 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { FamilyForm } from "@/components/FamilyForm";
 import { BasicGuide, DependentsGuide } from "@/components/FamilyGuides";
 import { BasicFormImage, FormImage } from "@/components/FormImage";
+import { Glossary } from "@/components/Glossary";
 import { Guide } from "@/components/Guide";
+import { HousingGuide } from "@/components/HousingGuide";
+import { ReviewStep, type Timing } from "@/components/ReviewStep";
 import { emptySelf, hasUnder23Dependent, type Family } from "@/lib/family";
 import { calculate } from "@/lib/calc";
 import { READ_PROMPT } from "@/lib/prompt.mjs";
@@ -14,10 +17,11 @@ import { mergeResults, parsePasted, type ReadResult } from "@/lib/schema";
 // localStorage などには保存しない。写真は自宅PCのサーバー（同じ Wi-Fi 内）にだけ送る。
 
 type Mode = "checking" | "local" | "paste" | "badToken";
-type Tab = "hoken" | "family" | "basic" | "fuyou";
+type Tab = "hoken" | "housing" | "family" | "basic" | "fuyou";
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: "hoken", label: "保険料控除" },
+  { id: "hoken", label: "書類・保険" },
+  { id: "housing", label: "住宅ローン" },
   { id: "family", label: "家族と収入" },
   { id: "basic", label: "基礎控除" },
   { id: "fuyou", label: "扶養控除" },
@@ -57,8 +61,13 @@ export default function Home() {
   const [selfTest, setSelfTest] = useState<{ state: "idle" | "running" | "ok" | "ng"; message: string }>({ state: "idle", message: "" });
   // 家族と収入の入力。画面の状態にだけ持つ（保存しない）。
   const [family, setFamily] = useState<Family>({ self: emptySelf(), spouse: null, dependents: [] });
+  // お手本の前の確認ステップを終えたか。新しく読み取ったら、もう一度確認する。
+  const [reviewed, setReviewed] = useState(false);
+  // 勤務先の年末調整の時期。11月30日以前なら、23歳未満の扶養親族の所得の基準を58万円に読み替える。
+  const [timing, setTiming] = useState<Timing | null>(null);
+  const under23IncomeLimit = timing === "11月以前" ? 580_000 : 620_000;
   // 家族の生年月日が入力されていれば、23歳未満の扶養親族の有無を自動で判定する
-  const autoUnder23 = family.dependents.some((d) => d.birth) ? hasUnder23Dependent(family) : null;
+  const autoUnder23 = family.dependents.some((d) => d.birth) ? hasUnder23Dependent(family, 2026, under23IncomeLimit) : null;
   const effectiveUnder23 = autoUnder23 ?? under23;
   const [pasted, setPasted] = useState("");
   const [copied, setCopied] = useState(false);
@@ -93,6 +102,7 @@ export default function Home() {
     }
     setError("");
     setData((prev) => (prev ? mergeResults(prev, res.data) : res.data));
+    setReviewed(false);
     return true;
   }
 
@@ -174,6 +184,7 @@ export default function Home() {
 
   function clearAll() {
     setData(null);
+    setReviewed(false);
     setError("");
     setPasted("");
   }
@@ -186,7 +197,7 @@ export default function Home() {
           ChatGPT・Claude・Gemini など、写真を読めるAIのチャットを開きます。
           <b>ハガキの写真を添付し、同じメッセージに依頼文を貼り付けて</b>送ります。
         </li>
-        <li>AIの回答をコピーし、下の欄に貼り付けて「お手本を表示」を押します。</li>
+        <li>AIの回答をコピーし、下の欄に貼り付けて「読み込む」を押します。書類が複数あるときは、1枚ずつ繰り返してもかまいません。</li>
       </ol>
       <button onClick={copyPrompt} className="rounded bg-blue-600 px-4 py-2 text-white">
         {copied ? "コピーしました" : "依頼文をコピー"}
@@ -211,7 +222,7 @@ export default function Home() {
         disabled={!pasted.trim()}
         className="rounded bg-blue-600 px-4 py-2 text-white disabled:bg-gray-400"
       >
-        お手本を表示
+        読み込む
       </button>
     </div>
   );
@@ -228,7 +239,7 @@ export default function Home() {
         </p>
       )}
 
-      <nav className="sticky top-0 z-10 -mx-4 grid grid-cols-4 border-b border-gray-300 bg-gray-50 px-2 text-sm">
+      <nav className="sticky top-0 z-10 -mx-4 grid grid-cols-5 border-b border-gray-300 bg-gray-50 px-1 text-xs sm:text-sm">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -240,10 +251,16 @@ export default function Home() {
         ))}
       </nav>
 
+      {tab === "housing" && <HousingGuide items={data?.housing ?? []} />}
       {tab === "family" && <FamilyForm value={family} onChange={setFamily} />}
       {tab === "basic" && (
         <>
           {family.self.salary === 0 && <p className="rounded bg-yellow-50 p-2 text-sm">先に「家族と収入」タブで、あなたの給与の収入などを入力してください。</p>}
+          {timing === "11月以前" && (
+            <p className="rounded bg-yellow-50 p-2 text-sm">
+              勤務先が11月中に年末調整をする場合、基礎控除などの計算の基準がこのお手本（12月の年末調整用）と違うことがあります。勤務先から配られた申告書と案内に従ってください。
+            </p>
+          )}
           <div className="grid grid-cols-2 overflow-hidden rounded border border-gray-400 text-sm">
             {(["image", "table"] as const).map((v) => (
               <button key={v} onClick={() => setView(v)} className={`py-2 ${view === v ? "bg-blue-600 text-white" : "bg-white"}`}>
@@ -265,10 +282,12 @@ export default function Home() {
 
       {tab === "hoken" && mode === "local" && (
         <section className="space-y-3">
-          <p className="text-sm">
-            ハガキを1枚ずつ撮影してください。撮影するとすぐに読み取りが始まり、下にお手本が出ます。
-            保存済みの写真は、何枚でもまとめて選べます。
-          </p>
+          <ol className="list-decimal space-y-1 rounded bg-white p-3 pl-8 text-sm">
+            <li>手元にある書類（保険会社のハガキ、住宅ローンの書類など）を、1枚ずつ撮影します。</li>
+            <li>全部撮り終えたら、画面の確認事項に答えます（撮り忘れがないかも確認します）。</li>
+            <li>お手本が出たら、それを見ながら申告書に手書きします。</li>
+          </ol>
+          <p className="text-xs text-gray-600">どの書類か分からなくても大丈夫です。年末調整に使わない書類なら、その旨を案内します。保存済みの写真は、何枚でもまとめて選べます。</p>
           <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => sendPhotos(e.target.files)} />
           <input ref={libraryRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => sendPhotos(e.target.files)} />
           <div className="grid gap-2 sm:grid-cols-[2fr_1fr]">
@@ -277,7 +296,7 @@ export default function Home() {
               disabled={reading}
               className="rounded-lg bg-blue-600 px-4 py-5 text-lg font-bold text-white disabled:bg-gray-400"
             >
-              {data ? "次のハガキを撮影" : "ハガキを撮影"}
+              {data ? "次の書類を撮影" : "書類を撮影"}
             </button>
             <button
               onClick={() => libraryRef.current?.click()}
@@ -309,8 +328,33 @@ export default function Home() {
 
       {error && <p className="rounded border border-red-400 bg-red-50 p-2 text-sm text-red-800">{error}</p>}
 
-      {tab === "hoken" && data && (
+      {tab === "hoken" && data && !reviewed && (
+        <ReviewStep
+          data={data}
+          onChange={setData}
+          timing={timing}
+          onTiming={setTiming}
+          onTakePhoto={() => (mode === "local" ? cameraRef.current?.click() : window.scrollTo({ top: 0, behavior: "smooth" }))}
+          onDone={() => {
+            setReviewed(true);
+            window.scrollTo({ top: 0 });
+          }}
+        />
+      )}
+
+      {tab === "hoken" && data && reviewed && (
         <section className="space-y-2">
+          <button onClick={() => setReviewed(false)} className="text-sm text-blue-700 underline">
+            ← 確認事項に戻る
+          </button>
+          {data.housing.length > 0 && (
+            <p className="rounded bg-blue-50 p-2 text-sm">
+              住宅ローンの書類も読み取りました。住宅ローン控除のお手本は「住宅ローン」タブにあります。
+            </p>
+          )}
+          {data.life.length + data.earthquake.length + data.social.length + data.smallBiz.length === 0 && (
+            <p className="rounded bg-yellow-50 p-2 text-sm">保険料控除申告書に書く書類はありませんでした。保険料控除申告書は、何も書かずに出すか、出さなくてよいか勤務先に確認してください。</p>
+          )}
           <div className="flex items-center justify-between">
             <h2 className="font-bold">保険料控除申告書の記入お手本</h2>
             <button onClick={clearAll} className="rounded border border-gray-400 px-3 py-1 text-sm">
@@ -329,7 +373,7 @@ export default function Home() {
               23歳未満（平成16年1月2日以後生まれ）の扶養親族がいる
               <span className="block text-xs text-gray-600">
                 {autoUnder23 !== null
-                  ? "「家族と収入」タブの入力から自動で判定しています。"
+                  ? `「家族と収入」タブの入力から自動で判定しています（所得${timing === "11月以前" ? "58" : "62"}万円以下の家族が対象）。`
                   : "令和8年分は、該当すると一般の生命保険料（新契約）の控除の上限が4万円から6万円に上がります。子どもなどを扶養しているときはチェックしてください。"}
               </span>
             </span>
@@ -372,6 +416,8 @@ export default function Home() {
           <div className="mt-2">{pasteFlow}</div>
         </details>
       )}
+      <Glossary />
+
       <footer className="pt-4 text-center text-[10px] text-gray-400">
         {mode === "local" ? `自宅PCモード${version ? `・版 ${version}` : ""}` : mode === "paste" ? "チャット貼り付けモード" : ""}
       </footer>

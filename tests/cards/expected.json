@@ -1,1 +1,94 @@
-{"c1_old_whole": {"life": [["一般", "旧", 81000]]}, "c2_gakushi": {"life": [["一般", "新", 144000]]}, "c3_pension": {"life": [["個人年金", "新", 96000]]}, "c4_quake": {"earthquake": [["地震", 18500]]}, "c5_nenkin": {"social": [203760]}, "c6_ideco": {"smallBiz": [276000]}, "c7_two": {"life": [["介護医療", "新", 42000], ["一般", "旧", 30000]]}}
+{
+ "c1_old_whole": {
+  "life": [
+   [
+    "一般",
+    "旧",
+    81000
+   ]
+  ]
+ },
+ "c2_gakushi": {
+  "life": [
+   [
+    "一般",
+    "新",
+    144000
+   ]
+  ]
+ },
+ "c3_pension": {
+  "life": [
+   [
+    "個人年金",
+    "新",
+    96000
+   ]
+  ]
+ },
+ "c4_quake": {
+  "earthquake": [
+   [
+    "地震",
+    18500
+   ]
+  ]
+ },
+ "c5_nenkin": {
+  "social": [
+   203760
+  ]
+ },
+ "c6_ideco": {
+  "smallBiz": [
+   276000
+  ]
+ },
+ "c7_two": {
+  "life": [
+   [
+    "介護医療",
+    "新",
+    42000
+   ],
+   [
+    "一般",
+    "旧",
+    30000
+   ]
+  ]
+ },
+ "c8_housing_form": {
+  "housing": [
+   [
+    "控除申告書",
+    null,
+    0.7,
+    210000
+   ]
+  ]
+ },
+ "c9_housing_cert": {
+  "housing": [
+   [
+    "残高証明書",
+    32145678,
+    null,
+    null
+   ]
+  ]
+ },
+ "c10_medical": {
+  "otherDocs": [
+   "医療費の領収書・通知"
+  ]
+ },
+ "c11_furusato": {
+  "otherDocs": [
+   "ふるさと納税・寄附金の受領証明書"
+  ]
+ },
+ "c12_car": {
+  "excluded_or_other": true
+ }
+}
