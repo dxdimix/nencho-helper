@@ -314,7 +314,9 @@ export function dependentsForm(f: Family, year = 2027) {
       c.push(`扶養親族（${s.person.label || s.person.relation}）：${kind}`);
     }
   }
-  if (f.self.widow !== "なし") c.push(f.self.widow);
+  // 寡婦・ひとり親は、本人の所得の見積額が500万円以下の場合だけ
+  if (f.self.widow !== "なし")
+    c.push(selfIncome <= 5_000_000 ? f.self.widow : `${f.self.widow}（所得の見積額が500万円を超えるため対象外）`);
   const student = f.self.workingStudent
     ? selfIncome <= 890_000
       ? "勤労学生"

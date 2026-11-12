@@ -146,3 +146,11 @@ describe("所得金額調整控除", () => {
     expect(r.basic.total).toBe(9_000_000 - 1_950_000 - 50_000);
   });
 });
+
+describe("寡婦・ひとり親", () => {
+  it("本人の所得が500万円を超えると対象外と表示する", () => {
+    const f = (salary: number): Family => ({ self: { ...emptySelf(), salary, widow: "ひとり親" }, spouse: null, dependents: [] });
+    expect(dependentsForm(f(6_000_000)).c).toEqual(["ひとり親"]); // 所得436万円
+    expect(dependentsForm(f(8_000_000)).c[0]).toContain("対象外"); // 所得620万円
+  });
+});
