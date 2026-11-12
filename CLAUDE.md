@@ -46,3 +46,4 @@ claude.ai などのブラウザ画面の自動操作は規約違反なので行�
 ## コマンド
 - npm run dev / npm run build / npm run lint / npm test
 - npm run local（ビルドして自宅PCサーバーを起動）
+- npm run check:reading（tests/cards の架空ハガキ7枚を Claude Code で読み取り、期待値と比べる。依頼文を変えたら実行。プランの利用枠を少し使う）

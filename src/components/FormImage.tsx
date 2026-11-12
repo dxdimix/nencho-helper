@@ -34,15 +34,30 @@ function draw(img: HTMLImageElement, ops: Op[]): string {
       continue;
     }
     if (!op.s) continue;
-    // 欄の幅に収まるまで文字を小さくする
-    let size = op.size ?? 6.5;
-    ctx.font = `${size * sy}px ${FONT}`;
-    while (ctx.measureText(op.s).width > op.w * sx && size > 3.5) {
-      size -= 0.25;
-      ctx.font = `${size * sy}px ${FONT}`;
-    }
     ctx.textAlign = op.align ?? "left";
-    ctx.fillText(op.s, op.x * sx, op.y * sy, op.w * sx);
+    // 欄の幅に収まるまで文字を小さくする。小さくしすぎると読めないので、
+    // 1行で収まらない長い文字は2行に分けて書く（数字は分けない）。
+    const fit = (text: string, min: number) => {
+      let size = op.size ?? 6.5;
+      ctx.font = `${size * sy}px ${FONT}`;
+      while (ctx.measureText(text).width > op.w * sx && size > min) {
+        size -= 0.25;
+        ctx.font = `${size * sy}px ${FONT}`;
+      }
+      return size;
+    };
+    const size = fit(op.s, 4.8);
+    if (ctx.measureText(op.s).width > op.w * sx && op.align !== "right" && op.s.length >= 4) {
+      const half = Math.ceil(op.s.length / 2);
+      const lines = [op.s.slice(0, half), op.s.slice(half)];
+      const s2 = Math.min(fit(lines[0], 3.6), fit(lines[1], 3.6));
+      ctx.font = `${s2 * sy}px ${FONT}`;
+      ctx.fillText(lines[0], op.x * sx, (op.y - s2 * 0.55) * sy, op.w * sx);
+      ctx.fillText(lines[1], op.x * sx, (op.y + s2 * 0.55) * sy, op.w * sx);
+    } else {
+      ctx.font = `${size * sy}px ${FONT}`;
+      ctx.fillText(op.s, op.x * sx, op.y * sy, op.w * sx);
+    }
   }
   return canvas.toDataURL("image/png");
 }

@@ -9,7 +9,8 @@
     "lint": "eslint",
     "test": "vitest run",
     "local": "next build && node local/server.mjs",
-    "local:serve": "node local/server.mjs"
+    "local:serve": "node local/server.mjs",
+    "check:reading": "node local/check-reading.mjs"
   },
   "dependencies": {
     "next": "15.5.29",
