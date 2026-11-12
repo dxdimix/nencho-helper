@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { FamilyForm } from "@/components/FamilyForm";
 import { BasicGuide, DependentsGuide } from "@/components/FamilyGuides";
-import { FormImage } from "@/components/FormImage";
+import { BasicFormImage, FormImage } from "@/components/FormImage";
 import { Guide } from "@/components/Guide";
 import { emptySelf, hasUnder23Dependent, type Family } from "@/lib/family";
 import { calculate } from "@/lib/calc";
@@ -211,7 +211,14 @@ export default function Home() {
       {tab === "basic" && (
         <>
           {family.self.salary === 0 && <p className="rounded bg-yellow-50 p-2 text-sm">先に「家族と収入」タブで、あなたの給与の収入などを入力してください。</p>}
-          <BasicGuide family={family} />
+          <div className="grid grid-cols-2 overflow-hidden rounded border border-gray-400 text-sm">
+            {(["image", "table"] as const).map((v) => (
+              <button key={v} onClick={() => setView(v)} className={`py-2 ${view === v ? "bg-blue-600 text-white" : "bg-white"}`}>
+                {v === "image" ? "申告書の画像で見る" : "表で見る"}
+              </button>
+            ))}
+          </div>
+          {view === "image" ? <BasicFormImage family={family} /> : <BasicGuide family={family} />}
         </>
       )}
       {tab === "fuyou" && (

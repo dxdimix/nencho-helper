@@ -1,5 +1,6 @@
 import type { Calculation } from "./calc";
 import type { ReadResult } from "./schema";
+import { basicForm, type Family } from "./family";
 
 // 国税庁「令和8年分 給与所得者の保険料控除申告書」の画像に書く内容と位置。
 // 座標は PDF の座標（ポイント、用紙の幅 841.89 × 高さ 595.276）。位置は様式 PDF の文字の座標から求めた。
@@ -8,7 +9,7 @@ export const PAGE_W = 841.89;
 export const PAGE_H = 595.276;
 
 export type Op =
-  | { t: "text"; s: string; x: number; y: number; w: number; size?: number; align?: "left" | "right" }
+  | { t: "text"; s: string; x: number; y: number; w: number; size?: number; align?: "left" | "right" | "center" }
   | { t: "circle"; x: number; y: number; r: number };
 
 const yen = (n: number) => n.toLocaleString("ja-JP");
@@ -133,3 +134,79 @@ export function buildOps(data: ReadResult, calc: Calculation, under23: boolean):
   return { ops, overflow };
 }
 
+
+// ---------------------------------------------------------------------------
+// 令和8年分 基礎控除申告書 兼 配偶者控除等申告書 兼 特定親族特別控除申告書 兼 所得金額調整控除申告書
+
+const check = (x: number, y: number): Op => ({ t: "text", s: "✓", x, y: y + 3, w: 10, size: 9, align: "center" });
+
+// 「判定」欄のチェックボックス（上から順に。基礎控除の行と同じ順）
+const BASIC_CHECK_Y = [233.1, 246.3, 259.7, 273.4, 286.8, 300.8, 313.7, 327.4, 340.8];
+const BASIC_ROW_LABELS = [
+  "489万円以下",
+  "489万円超 655万円以下",
+  "655万円超 900万円以下",
+  "900万円超 950万円以下",
+  "950万円超 1,000万円以下",
+  "1,000万円超 2,350万円以下",
+  "2,350万円超 2,400万円以下",
+  "2,400万円超 2,450万円以下",
+  "2,450万円超 2,500万円以下",
+];
+const SPOUSE_CHECK_Y = { "①": 205.8, "②": 230.9, "③": 249.6, "④": 265.9 } as const;
+const SPECIFIC_Y = [427.5, 454.5];
+const ADJUST_CHECK_Y: Record<string, number> = {
+  あなた自身が特別障害者: 519.6,
+  同一生計配偶者が特別障害者: 532.7,
+  扶養親族が特別障害者: 545.8,
+  "扶養親族が年齢23歳未満（平16.1.2以後生）": 559.1,
+};
+
+export function buildBasicOps(f: Family): { ops: Op[]; overflow: string[] } {
+  const r = basicForm(f);
+  const b = r.basic;
+  const ops: Op[] = [];
+  const overflow: string[] = [];
+
+  // あなたの合計所得金額の見積額
+  ops.push(amount(f.self.salary, 209.5, 163));
+  ops.push(amount(b.salaryIncome, 304, 163));
+  ops.push(amount(b.otherIncome, 304, 190));
+  ops.push(amount(b.total, 303, 210));
+  const row = BASIC_ROW_LABELS.indexOf(b.judgeRow);
+  if (row >= 0) ops.push(check(85.5, BASIC_CHECK_Y[row]));
+  if (b.kubun1 && f.spouse) ops.push({ t: "text", s: b.kubun1, x: 280, y: 253, w: 40, size: 11, align: "center" });
+  ops.push(amount(b.amount, 305, 308));
+
+  // 配偶者
+  if (f.spouse && r.spouse) {
+    const s = r.spouse;
+    ops.push(amount(f.spouse.salary, 476.8, 225));
+    ops.push(amount(s.income - f.spouse.otherIncome, 563, 225));
+    ops.push(amount(f.spouse.otherIncome, 563, 245));
+    ops.push(amount(s.income, 562.5, 268));
+    if (s.kubun2) {
+      ops.push(check(610, SPOUSE_CHECK_Y[s.kubun2]));
+      if (s.kind) ops.push({ t: "text", s: s.kubun2, x: 772.2, y: 254, w: 14, size: 10, align: "center" });
+    }
+    if (s.kind === "配偶者控除") ops.push(amount(s.amount, 767.5, 308.5));
+    if (s.kind === "配偶者特別控除") ops.push(amount(s.amount, 767.5, 340.5));
+  }
+
+  // 特定親族
+  if (r.specific.length > SPECIFIC_Y.length) overflow.push(`特定親族：${r.specific.length - SPECIFIC_Y.length}人（行が足りません。続きは余白か別紙に書いてください）`);
+  r.specific.slice(0, SPECIFIC_Y.length).forEach(({ status, amount: a }, k) => {
+    ops.push({ t: "text", s: status.person.label || status.person.relation, x: 92, y: SPECIFIC_Y[k] - 1, w: 70 });
+    ops.push(amount(status.income, 686, SPECIFIC_Y[k]));
+    ops.push(amount(a, 768, SPECIFIC_Y[k]));
+  });
+
+  // 所得金額調整控除の要件
+  if (r.adjustment.applies) {
+    for (const reason of r.adjustment.reasons) {
+      const y = ADJUST_CHECK_Y[reason];
+      if (y) ops.push(check(79.2, y));
+    }
+  }
+  return { ops, overflow };
+}

@@ -19,3 +19,19 @@ describe("申告書の画像に書く内容", () => {
     expect(buildOps(r, calculate(r), false).overflow[0]).toContain("1件");
   });
 });
+
+import { emptySelf, newPerson } from "../src/lib/family";
+import { buildBasicOps } from "../src/lib/formOps";
+
+describe("基礎控除申告書の画像に書く内容", () => {
+  it("区分Ⅰ・区分Ⅱ・配偶者特別控除の額・特定親族・所得金額調整控除のチェックを書く", () => {
+    const f = {
+      self: { ...emptySelf(), salary: 9_000_000 },
+      spouse: { ...newPerson("配偶者"), birth: "1985-03-03", salary: 1_750_000 },
+      dependents: [{ ...newPerson(), birth: "2015-06-01" }, { ...newPerson(), birth: "2006-06-01", salary: 1_700_000 }],
+    };
+    const texts = buildBasicOps(f).ops.flatMap((o) => (o.t === "text" ? [o.s] : []));
+    expect(texts).toEqual(expect.arrayContaining(["7,000,000", "620,000", "A", "④", "310,000", "960,000", "410,000"]));
+    expect(texts.filter((t) => t === "✓")).toHaveLength(3); // 判定・区分Ⅱ・所得金額調整控除の要件
+  });
+});

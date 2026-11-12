@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import type { Calculation } from "@/lib/calc";
-import { buildOps, PAGE_H, PAGE_W, type Op } from "@/lib/formOps";
+import type { Family } from "@/lib/family";
+import { buildBasicOps, buildOps, PAGE_H, PAGE_W, type Op } from "@/lib/formOps";
 import type { ReadResult } from "@/lib/schema";
 
 // 国税庁の「令和8年分 給与所得者の保険料控除申告書」の画像に、記入する内容を重ねて描く。
@@ -46,24 +47,24 @@ function draw(img: HTMLImageElement, ops: Op[]): string {
   return canvas.toDataURL("image/png");
 }
 
-export function FormImage({ data, calc, under23 }: { data: ReadResult; calc: Calculation; under23: boolean }) {
+/** 申告書の画像に ops を描いて表示する */
+export function FormCanvas({ image, ops, overflow, alt, credit }: { image: string; ops: Op[]; overflow: string[]; alt: string; credit: string }) {
   const [src, setSrc] = useState("");
   const [failed, setFailed] = useState(false);
-  const { ops, overflow } = buildOps(data, calc, under23);
   const key = JSON.stringify(ops);
 
   useEffect(() => {
     const img = new Image();
     img.onload = () => setSrc(draw(img, JSON.parse(key)));
     img.onerror = () => setFailed(true);
-    img.src = "forms/hoken-r8.png";
-  }, [key]);
+    img.src = image;
+  }, [key, image]);
 
   if (failed) return <p className="text-sm text-red-700">申告書の画像を読み込めませんでした。</p>;
   return (
     <div className="space-y-2">
       <p className="text-xs text-gray-600">
-        青い文字が記入する内容です。○は、その項目を○で囲むという意味です。画像は2本指で拡大できます。長押し（PCでは右クリック）で保存もできます。
+        青い文字が記入する内容です。○はその項目を○で囲む、✓はチェックを付けるという意味です。画像は2本指で拡大できます。長押し（PCでは右クリック）で保存もできます。
       </p>
       {overflow.map((o) => (
         <p key={o} className="rounded bg-yellow-50 p-2 text-sm">{o}</p>
@@ -71,12 +72,38 @@ export function FormImage({ data, calc, under23 }: { data: ReadResult; calc: Cal
       <div className="overflow-x-auto rounded border border-gray-300 bg-white">
         {src ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={src} alt="保険料控除申告書の記入例" className="block w-full min-w-[720px]" />
+          <img src={src} alt={alt} className="block w-full min-w-[720px]" />
         ) : (
           <p className="p-4 text-sm text-gray-500">申告書の画像を作っています…</p>
         )}
       </div>
-      <p className="text-[10px] text-gray-500">申告書の画像：国税庁「令和８年分 給与所得者の保険料控除申告書」を加工して作成</p>
+      <p className="text-[10px] text-gray-500">申告書の画像：国税庁「{credit}」を加工して作成</p>
     </div>
+  );
+}
+
+export function FormImage({ data, calc, under23 }: { data: ReadResult; calc: Calculation; under23: boolean }) {
+  const { ops, overflow } = buildOps(data, calc, under23);
+  return (
+    <FormCanvas
+      image="forms/hoken-r8.png"
+      ops={ops}
+      overflow={overflow}
+      alt="保険料控除申告書の記入例"
+      credit="令和８年分 給与所得者の保険料控除申告書"
+    />
+  );
+}
+
+export function BasicFormImage({ family }: { family: Family }) {
+  const { ops, overflow } = buildBasicOps(family);
+  return (
+    <FormCanvas
+      image="forms/kiso-r8.png"
+      ops={ops}
+      overflow={overflow}
+      alt="基礎控除申告書の記入例"
+      credit="令和８年分 給与所得者の基礎控除申告書 兼 給与所得者の配偶者控除等申告書 兼 給与所得者の特定親族特別控除申告書 兼 所得金額調整控除申告書"
+    />
   );
 }
