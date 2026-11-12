@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { FamilyForm } from "@/components/FamilyForm";
+import { BasicGuide, DependentsGuide } from "@/components/FamilyGuides";
 import { Guide } from "@/components/Guide";
+import { emptySelf, hasUnder23Dependent, type Family } from "@/lib/family";
 import { calculate } from "@/lib/calc";
 import { READ_PROMPT } from "@/lib/prompt.mjs";
 import { mergeResults, parsePasted, type ReadResult } from "@/lib/schema";
@@ -10,6 +13,14 @@ import { mergeResults, parsePasted, type ReadResult } from "@/lib/schema";
 // localStorage などには保存しない。写真は自宅PCのサーバー（同じ Wi-Fi 内）にだけ送る。
 
 type Mode = "checking" | "local" | "paste" | "badToken";
+type Tab = "hoken" | "family" | "basic" | "fuyou";
+
+const TABS: { id: Tab; label: string }[] = [
+  { id: "hoken", label: "保険料控除" },
+  { id: "family", label: "家族と収入" },
+  { id: "basic", label: "基礎控除" },
+  { id: "fuyou", label: "扶養控除" },
+];
 
 // 写真を長辺 2000px の JPEG に縮小して送る（送信と読み取りを速くするため）。
 async function shrink(file: File): Promise<{ type: string; data: string }> {
@@ -39,6 +50,12 @@ export default function Home() {
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   // 23歳未満の扶養親族がいるか（令和8年分の生命保険料控除の特例）。画面の状態にだけ持つ。
   const [under23, setUnder23] = useState(false);
+  const [tab, setTab] = useState<Tab>("hoken");
+  // 家族と収入の入力。画面の状態にだけ持つ（保存しない）。
+  const [family, setFamily] = useState<Family>({ self: emptySelf(), spouse: null, dependents: [] });
+  // 家族の生年月日が入力されていれば、23歳未満の扶養親族の有無を自動で判定する
+  const autoUnder23 = family.dependents.some((d) => d.birth) ? hasUnder23Dependent(family) : null;
+  const effectiveUnder23 = autoUnder23 ?? under23;
   const [pasted, setPasted] = useState("");
   const [copied, setCopied] = useState(false);
   const cameraRef = useRef<HTMLInputElement>(null);
@@ -176,7 +193,35 @@ export default function Home() {
         </p>
       )}
 
-      {mode === "local" && (
+      <nav className="sticky top-0 z-10 -mx-4 grid grid-cols-4 border-b border-gray-300 bg-gray-50 px-2 text-sm">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`px-1 py-2 ${tab === t.id ? "border-b-2 border-blue-600 font-bold text-blue-700" : "text-gray-600"}`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </nav>
+
+      {tab === "family" && <FamilyForm value={family} onChange={setFamily} />}
+      {tab === "basic" && (
+        <>
+          {family.self.salary === 0 && <p className="rounded bg-yellow-50 p-2 text-sm">先に「家族と収入」タブで、あなたの給与の収入などを入力してください。</p>}
+          <BasicGuide family={family} />
+        </>
+      )}
+      {tab === "fuyou" && (
+        <>
+          {family.self.salary === 0 && family.dependents.length === 0 && (
+            <p className="rounded bg-yellow-50 p-2 text-sm">先に「家族と収入」タブで、配偶者や家族を入力してください。</p>
+          )}
+          <DependentsGuide family={family} />
+        </>
+      )}
+
+      {tab === "hoken" && mode === "local" && (
         <section className="space-y-3">
           <p className="text-sm">
             ハガキを1枚ずつ撮影してください。撮影するとすぐに読み取りが始まり、下にお手本が出ます。
@@ -211,7 +256,7 @@ export default function Home() {
         </section>
       )}
 
-      {mode === "paste" && (
+      {tab === "hoken" && mode === "paste" && (
         <section className="space-y-2">
           <p className="rounded bg-yellow-50 p-2 text-xs text-yellow-900">
             撮影してすぐ読み取るには、自宅PCでアプリを起動し、PCの画面に出るアドレスをスマホで開いてください。この画面では、AIのチャットを使う方法で読み取れます。
@@ -222,7 +267,7 @@ export default function Home() {
 
       {error && <p className="rounded border border-red-400 bg-red-50 p-2 text-sm text-red-800">{error}</p>}
 
-      {data && (
+      {tab === "hoken" && data && (
         <section className="space-y-2">
           <div className="flex items-center justify-between">
             <h2 className="font-bold">保険料控除申告書の記入お手本</h2>
@@ -231,19 +276,27 @@ export default function Home() {
             </button>
           </div>
           <label className="flex items-start gap-2 rounded border border-gray-300 bg-white p-3 text-sm">
-            <input type="checkbox" className="mt-1 h-5 w-5" checked={under23} onChange={(e) => setUnder23(e.target.checked)} />
+            <input
+              type="checkbox"
+              className="mt-1 h-5 w-5"
+              checked={effectiveUnder23}
+              disabled={autoUnder23 !== null}
+              onChange={(e) => setUnder23(e.target.checked)}
+            />
             <span>
               23歳未満（平成16年1月2日以後生まれ）の扶養親族がいる
               <span className="block text-xs text-gray-600">
-                令和8年分は、該当すると一般の生命保険料（新契約）の控除の上限が4万円から6万円に上がります。子どもなどを扶養しているときはチェックしてください。
+                {autoUnder23 !== null
+                  ? "「家族と収入」タブの入力から自動で判定しています。"
+                  : "令和8年分は、該当すると一般の生命保険料（新契約）の控除の上限が4万円から6万円に上がります。子どもなどを扶養しているときはチェックしてください。"}
               </span>
             </span>
           </label>
-          <Guide data={data} calc={calculate(data, { under23 })} />
+          <Guide data={data} calc={calculate(data, { under23: effectiveUnder23 })} />
         </section>
       )}
 
-      {mode === "local" && (
+      {tab === "hoken" && mode === "local" && (
         <details className="text-sm">
           <summary className="cursor-pointer text-gray-600">うまく読み取れないとき：AIのチャットを使う方法</summary>
           <div className="mt-2">{pasteFlow}</div>
