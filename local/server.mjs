@@ -35,6 +35,9 @@ function findClaude() {
   return candidates.find((c) => c && fs.existsSync(c)) || "claude";
 }
 const CLAUDE_BIN = findClaude();
+// 自動更新で記録した版（GitHub のコミット番号の先頭7文字）。画面に表示して、更新できたかを確かめられるようにする。
+const VERSION_FILE = path.join(ROOT, ".version");
+const VERSION = fs.existsSync(VERSION_FILE) ? fs.readFileSync(VERSION_FILE, "utf8").trim().slice(0, 7) : "";
 const MODEL = process.env.CLAUDE_MODEL || "sonnet";
 const TIMEOUT_MS = 4 * 60 * 1000;
 const MAX_BODY = 40 * 1024 * 1024;
@@ -200,7 +203,7 @@ function route(req, res) {
   const url = new URL(req.url, "http://x");
   if (url.pathname.startsWith("/api/")) {
     if (req.headers["x-local-token"] !== TOKEN) return sendJson(res, 401, { error: "URL が正しくありません。PCの画面に出ているアドレスを開き直してください。" });
-    if (url.pathname === "/api/health" && req.method === "GET") return sendJson(res, 200, { ok: true });
+    if (url.pathname === "/api/health" && req.method === "GET") return sendJson(res, 200, { ok: true, version: VERSION });
     if (url.pathname === "/api/read" && req.method === "POST") return void handleRead(req, res);
     return sendJson(res, 404, { error: "not found" });
   }

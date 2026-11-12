@@ -53,6 +53,8 @@ export default function Home() {
   const [under23, setUnder23] = useState(false);
   const [tab, setTab] = useState<Tab>("hoken");
   const [view, setView] = useState<"image" | "table">("image");
+  const [version, setVersion] = useState("");
+  const [selfTest, setSelfTest] = useState<{ state: "idle" | "running" | "ok" | "ng"; message: string }>({ state: "idle", message: "" });
   // 家族と収入の入力。画面の状態にだけ持つ（保存しない）。
   const [family, setFamily] = useState<Family>({ self: emptySelf(), spouse: null, dependents: [] });
   // 家族の生年月日が入力されていれば、23歳未満の扶養親族の有無を自動で判定する
@@ -68,7 +70,10 @@ export default function Home() {
     const t = new URLSearchParams(location.search).get("t") ?? "";
     setToken(t);
     fetch("api/health", { headers: { "x-local-token": t } })
-      .then((r) => setMode(r.ok ? "local" : r.status === 401 ? "badToken" : "paste"))
+      .then(async (r) => {
+        setMode(r.ok ? "local" : r.status === 401 ? "badToken" : "paste");
+        if (r.ok) setVersion(((await r.json()) as { version?: string }).version ?? "");
+      })
       .catch(() => setMode("paste"));
   }, []);
 
@@ -126,6 +131,34 @@ export default function Home() {
       setReading(false);
       if (cameraRef.current) cameraRef.current.value = "";
       if (libraryRef.current) libraryRef.current.value = "";
+    }
+  }
+
+  // 見本のハガキ（架空の内容）を読み取らせて、PC側の読み取りが正しく動くかを確かめる。
+  // 結果はお手本には加えない。
+  async function runSelfTest() {
+    setSelfTest({ state: "running", message: "見本のハガキを読み取っています…（30秒〜1分）" });
+    try {
+      const blob = await (await fetch("samples/sample-hagaki.jpg")).blob();
+      const image = await shrink(new File([blob], "sample.jpg", { type: "image/jpeg" }));
+      const r = await fetch("api/read", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-local-token": token },
+        body: JSON.stringify({ images: [image] }),
+      });
+      const body = await r.json();
+      if (!r.ok) return setSelfTest({ state: "ng", message: body.error ?? "読み取りに失敗しました。" });
+      const res = parsePasted(body.text);
+      if (!res.ok) return setSelfTest({ state: "ng", message: res.error });
+      const item = res.data.life[0];
+      const ok = res.data.life.length === 1 && item.category === "介護医療" && item.system === "新" && item.amount === 36000;
+      setSelfTest(
+        ok
+          ? { state: "ok", message: "正しく読み取れました（介護医療・新制度・36,000円）。PC側の準備はできています。" }
+          : { state: "ng", message: `読み取りはできましたが、内容が想定と違いました（${item ? `${item.category}・${item.system}・${item.amount}円` : "項目なし"}）。依頼文の調整が必要かもしれません。` },
+      );
+    } catch {
+      setSelfTest({ state: "ng", message: "PCにつながりませんでした。" });
     }
   }
 
@@ -318,10 +351,30 @@ export default function Home() {
 
       {tab === "hoken" && mode === "local" && (
         <details className="text-sm">
+          <summary className="cursor-pointer text-gray-600">動作チェック（見本のハガキで試す）</summary>
+          <div className="mt-2 space-y-2">
+            <p>架空の内容の見本ハガキを、PCの Claude Code で読み取れるかを確かめます。結果はお手本には加えません。</p>
+            <button onClick={runSelfTest} disabled={selfTest.state === "running" || reading} className="rounded border border-blue-600 px-3 py-1 text-blue-700 disabled:text-gray-400">
+              動作チェックを実行
+            </button>
+            {selfTest.message && (
+              <p className={`rounded p-2 ${selfTest.state === "ok" ? "bg-green-50 text-green-800" : selfTest.state === "ng" ? "bg-red-50 text-red-800" : "bg-blue-50 text-blue-800"}`}>
+                {selfTest.message}
+              </p>
+            )}
+          </div>
+        </details>
+      )}
+
+      {tab === "hoken" && mode === "local" && (
+        <details className="text-sm">
           <summary className="cursor-pointer text-gray-600">うまく読み取れないとき：AIのチャットを使う方法</summary>
           <div className="mt-2">{pasteFlow}</div>
         </details>
       )}
+      <footer className="pt-4 text-center text-[10px] text-gray-400">
+        {mode === "local" ? `自宅PCモード${version ? `・版 ${version}` : ""}` : mode === "paste" ? "チャット貼り付けモード" : ""}
+      </footer>
     </main>
   );
 }

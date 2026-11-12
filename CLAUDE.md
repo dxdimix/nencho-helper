@@ -31,6 +31,8 @@ claude.ai などのブラウザ画面の自動操作は規約違反なので行�
 - 控除額の計算: src/lib/calc.ts（国税庁の計算式。テストは tests/calc.test.ts）
   - 令和8年分の特例: 23歳未満の扶養親族がいると、一般生命保険料（新）の計算式が変わり、新＋旧の上限が6万円になる（画面のチェックで切り替え）。
   - 計算式や上限は年分ごとに変わるので、毎年、国税庁の「年末調整のしかた」と照らし合わせる。
+- 申告書の画像への書き込み: src/lib/formOps.ts（位置）、src/components/FormImage.tsx（描画）。画像は public/forms/（国税庁の様式 PDF を 150dpi で画像化）
+- 動作チェック用の見本ハガキ（架空）: public/samples/sample-hagaki.jpg。api/health は自動更新で記録した版（.version）を返す
 - お手本の表示: src/components/Guide.tsx（保険料控除）、src/components/FamilyGuides.tsx（基礎控除・扶養控除）
 - 家族と収入の入力: src/components/FamilyForm.tsx、判定と計算: src/lib/family.ts（テストは tests/family.test.ts）
   - 年末に書くのは「令和8年分」の保険料控除申告書・基礎控除申告書と、「令和9年分」の扶養控除等申告書。
