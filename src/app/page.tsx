@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { FamilyForm } from "@/components/FamilyForm";
 import { BasicGuide, DependentsGuide } from "@/components/FamilyGuides";
+import { FormImage } from "@/components/FormImage";
 import { Guide } from "@/components/Guide";
 import { emptySelf, hasUnder23Dependent, type Family } from "@/lib/family";
 import { calculate } from "@/lib/calc";
@@ -51,6 +52,7 @@ export default function Home() {
   // 23歳未満の扶養親族がいるか（令和8年分の生命保険料控除の特例）。画面の状態にだけ持つ。
   const [under23, setUnder23] = useState(false);
   const [tab, setTab] = useState<Tab>("hoken");
+  const [view, setView] = useState<"image" | "table">("image");
   // 家族と収入の入力。画面の状態にだけ持つ（保存しない）。
   const [family, setFamily] = useState<Family>({ self: emptySelf(), spouse: null, dependents: [] });
   // 家族の生年月日が入力されていれば、23歳未満の扶養親族の有無を自動で判定する
@@ -292,7 +294,18 @@ export default function Home() {
               </span>
             </span>
           </label>
-          <Guide data={data} calc={calculate(data, { under23: effectiveUnder23 })} />
+          <div className="grid grid-cols-2 overflow-hidden rounded border border-gray-400 text-sm">
+            {(["image", "table"] as const).map((v) => (
+              <button key={v} onClick={() => setView(v)} className={`py-2 ${view === v ? "bg-blue-600 text-white" : "bg-white"}`}>
+                {v === "image" ? "申告書の画像で見る" : "表で見る"}
+              </button>
+            ))}
+          </div>
+          {view === "image" ? (
+            <FormImage data={data} calc={calculate(data, { under23: effectiveUnder23 })} under23={effectiveUnder23} />
+          ) : (
+            <Guide data={data} calc={calculate(data, { under23: effectiveUnder23 })} />
+          )}
         </section>
       )}
 
