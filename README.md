@@ -49,12 +49,14 @@ DIMY と同じ仕組みです。スマホの画面（GitHub Pages 版）→ Supa
 写真は読み取りが終わるまでの間だけ Supabase に置かれ、読み取り後すぐに消えます（消し忘れも15分で自動で消します）。
 
 ### 1. Supabase（最初の1回だけ）
-1. https://supabase.com/dashboard で「New project」を押し、プロジェクトを作ります（名前は `nencho` など、Region は Tokyo）。
-2. 左のメニューの「SQL Editor」を開き、このリポジトリの `supabase/migrations/20261117000000_read_jobs.sql` の中身を貼り付けて「Run」を押します。
-3. 「Authentication」→「Users」→「Add user」→「Create new user」で、メールアドレスとパスワードを入れ、「Auto Confirm User」にチェックを入れて作ります。奥さんなども使う場合は、同じように追加します。
-   - プロジェクトに以前のシステムのアカウントが残っている場合は、`supabase/migrations/20261117010000_read_jobs_allowlist.sql` のメールアドレスを書き換えて SQL Editor で実行すると、使えるアカウントを限定できます。
-4. 「Authentication」→「Sign In / Providers」で「Allow new users to sign up」をオフにします（他人が登録できないようにするため）。
-5. 「Project Settings」→「Data API」で **Project URL**、「API Keys」で **Publishable key**（`sb_publishable_`）と **Secret key**（`sb_secret_`）を控えます。
+1. https://supabase.com/dashboard でプロジェクトを開きます（新しく作る場合は Region を Tokyo に）。
+2. 左のメニューの「SQL Editor」で、次の2つの SQL を順に実行します（中身を貼り付けて「Run」）。
+   - `supabase/migrations/20261117000000_read_jobs.sql`
+   - `supabase/migrations/20261117010000_members.sql`（招待制にするための表）
+3. 「Authentication」→「Sign In / Providers」で「Allow new users to sign up」をオフにします（他人が勝手に登録できないようにするため）。
+4. 「Project Settings」→「Data API」で **Project URL**、「API Keys」で **Publishable key**（`sb_publishable_`）と **Secret key**（`sb_secret_`）を控えます。
+
+アカウントは、ここでは作りません。あとで自宅PCの管理画面から招待します。
 
 ### 2. GitHub（画面に Supabase の場所を教える）
 1. https://github.com/dxdimix/nencho-helper/settings/variables/actions を開きます。
@@ -71,6 +73,18 @@ SUPABASE_SECRET_KEY=（Secret key）
 ```
 **Secret key は強い権限を持つキーです。この PC の `.env.local` 以外（GitHub など）には書かないでください。**
 起動したときの黒い画面に「Supabase とつながりました」と出れば準備完了です。
+
+### 4. 招待する（FX シグナル監視と同じやり方）
+1. 自宅PCでアプリを起動し、PCのブラウザで「この PC のブラウザで使うアドレス」を開きます（黒い画面に出ています）。
+2. はじめの画面の下にある「家族や知り合いを招待する」を押します。
+3. 招待する人のメールアドレスを入れて「招待リンクを作る」を押します。まずは自分のメールアドレスで試してください。
+4. できたリンクを「LINEで送る」か「案内文ごとコピー」で本人に送ります。
+5. 本人がリンクを開いてパスワードを決めると、使い始められます。
+
+- 招待した人だけが「写真で登録」を使えます。Supabase に以前のシステムのアカウントが残っていても、招待していなければ使えません。
+- すでにアカウントがある人（以前のシステムのアカウントなど）を招待すると、パスワードを決め直すリンクになります。
+- パスワードを忘れた人には、もう一度「招待リンクを作る」でリンクを送ります。
+- 招待を取り消すと、その人は「写真で登録」を使えなくなります（アカウント自体は消しません）。
 
 ### 使い方
 GitHub Pages 版（https://dxdimix.github.io/nencho-helper/）を開き、「②ハガキの登録」でログインすると「写真で登録」が使えます。

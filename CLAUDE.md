@@ -15,6 +15,8 @@
 2. 外出先モード（cloud）: GitHub Pages 版に Supabase の設定（GitHub の Actions の Variables）が入っている場合。DIMY と同じく Supabase を中継する。
    画面がログインした本人として read_jobs に写真を追加 → 自宅PCのサーバー（local/cloud.mjs、.env.local の secret キー）が3秒ごとに受け取り、
    local/reader.mjs で読み取って結果を書き、写真を消す → 画面が結果を受け取って行を消す。15分以上前の行は自動で消す。PCのオンライン表示は Presence（nencho-presence）。
+   招待制（FX シグナル監視と同じ）：写真を送れるのは nencho_members にいる人だけ。招待リンクは自宅PCの管理画面（local/admin.mjs、/api/admin/*、
+   src/components/Invite.tsx）で作り、LINE などで送る。リンク（?token_hash=…&type=invite|recovery）を開いた人は verifyOtp → パスワード設定。
 3. 手入力モード: GitHub Pages 版で Supabase の設定がない場合。ハガキの内容を手で入力する（依頼文をコピーしてAIチャットに送る方式は分かりにくいので廃止した）。
 
 画面は api/health に問い合わせて、どちらのモードかを判定する。

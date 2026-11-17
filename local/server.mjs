@@ -12,6 +12,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import qrcode from "qrcode-terminal";
+import { createAdmin } from "./admin.mjs";
 import { startCloud } from "./cloud.mjs";
 import { createReader, findClaude, MAX_IMAGES } from "./reader.mjs";
 
@@ -96,6 +97,24 @@ function readBody(req) {
 }
 
 const reader = createReader({ bin: CLAUDE_BIN, model: MODEL });
+// 招待の管理（Supabase の設定があるときだけ）
+const admin = createAdmin({ url: process.env.SUPABASE_URL, secretKey: process.env.SUPABASE_SECRET_KEY, appUrl: process.env.NENCHO_APP_URL });
+
+async function handleAdmin(req, res, pathname) {
+  if (!admin) return sendJson(res, 400, { error: "Supabase の設定がないため、招待は使えません。" });
+  try {
+    if (pathname === "/api/admin/members" && req.method === "GET") return sendJson(res, 200, { members: await admin.members() });
+    const body = req.method === "POST" ? JSON.parse((await readBody(req)).toString("utf8") || "{}") : {};
+    if (pathname === "/api/admin/invite" && req.method === "POST") return sendJson(res, 200, await admin.invite(body.email));
+    if (pathname === "/api/admin/remove" && req.method === "POST") {
+      await admin.remove(String(body.userId ?? ""));
+      return sendJson(res, 200, { ok: true });
+    }
+    return sendJson(res, 404, { error: "not found" });
+  } catch (e) {
+    sendJson(res, 400, { error: e instanceof Error ? e.message : "処理できませんでした。" });
+  }
+}
 
 async function handleRead(req, res) {
   if (reader.busy) return sendJson(res, 429, { error: "前の写真を読み取り中です。終わってから送ってください。" });
@@ -123,7 +142,8 @@ function route(req, res) {
   const url = new URL(req.url, "http://x");
   if (url.pathname.startsWith("/api/")) {
     if (req.headers["x-local-token"] !== TOKEN) return sendJson(res, 401, { error: "URL が正しくありません。PCの画面に出ているアドレスを開き直してください。" });
-    if (url.pathname === "/api/health" && req.method === "GET") return sendJson(res, 200, { ok: true, version: VERSION });
+    if (url.pathname === "/api/health" && req.method === "GET") return sendJson(res, 200, { ok: true, version: VERSION, admin: !!admin });
+    if (url.pathname.startsWith("/api/admin/")) return void handleAdmin(req, res, url.pathname);
     if (url.pathname === "/api/read" && req.method === "POST") return void handleRead(req, res);
     return sendJson(res, 404, { error: "not found" });
   }

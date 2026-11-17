@@ -6,6 +6,7 @@ import { BasicFormImage, FormImage } from "@/components/FormImage";
 import { Glossary } from "@/components/Glossary";
 import { Bag, Book, Camera, Checklist, FormPen, Health, HeroFlow, House, Pension, PiggyBank, Postcard, Shield } from "@/components/Illustrations";
 import { InfoTip } from "@/components/InfoTip";
+import { AdminPanel, SetPassword, useInviteLanding } from "@/components/Invite";
 import { ManualEntry } from "@/components/ManualEntry";
 import { NenchoGuide } from "@/components/NenchoGuide";
 import { Guide } from "@/components/Guide";
@@ -73,7 +74,11 @@ export default function Home() {
   const [token, setToken] = useState("");
   const [version, setVersion] = useState("");
   // 最初の画面（welcome）、手順の画面（app）、ねんちょーガイド（guide）
-  const [screen, setScreen] = useState<"welcome" | "app" | "guide">("welcome");
+  const [screen, setScreen] = useState<"welcome" | "app" | "guide" | "admin">("welcome");
+  // 自宅PCで開いていて、招待の管理ができるか
+  const [adminAvailable, setAdminAvailable] = useState(false);
+  // 招待リンクで開かれたか
+  const [invite, clearInvite] = useInviteLanding();
   const [guideFrom, setGuideFrom] = useState<"welcome" | "app">("welcome");
   const [step, setStep] = useState<Step>("questions");
   const [visited, setVisited] = useState<Step[]>(["questions"]);
@@ -117,7 +122,11 @@ export default function Home() {
     fetch("api/health", { headers: { "x-local-token": t } })
       .then(async (r) => {
         setMode(r.ok ? "local" : r.status === 401 ? "badToken" : cloudConfigured ? "cloud" : "paste");
-        if (r.ok) setVersion(((await r.json()) as { version?: string }).version ?? "");
+        if (r.ok) {
+          const j = (await r.json()) as { version?: string; admin?: boolean };
+          setVersion(j.version ?? "");
+          setAdminAvailable(!!j.admin);
+        }
       })
       .catch(() => setMode(cloudConfigured ? "cloud" : "paste"));
   }, []);
@@ -287,7 +296,32 @@ export default function Home() {
         )}
       </header>
 
-      {screen === "guide" && (
+      {invite && (
+        <div className="space-y-3">
+          {invite === "checking" && <p className="rounded-2xl bg-white p-5 text-center text-sm shadow-sm">招待リンクを確認しています…</p>}
+          {invite === "ok" && (
+            <SetPassword
+              onDone={() => {
+                clearInvite();
+                setScreen("welcome");
+              }}
+            />
+          )}
+          {invite !== "checking" && invite !== "ok" && (
+            <div className="space-y-3 rounded-2xl bg-white p-5 text-center shadow-sm">
+              <p className="font-bold">招待リンクを確認できませんでした</p>
+              <p className="text-sm text-gray-600">{invite}</p>
+              <button onClick={clearInvite} className="rounded-full border border-gray-400 px-4 py-2 text-sm">
+                はじめの画面へ
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {!invite && screen === "admin" && <AdminPanel token={token} onClose={() => setScreen("welcome")} />}
+
+      {!invite && screen === "guide" && (
         <NenchoGuide
           mine={mine}
           onClose={() => {
@@ -301,7 +335,7 @@ export default function Home() {
         />
       )}
 
-      {screen === "welcome" && (
+      {!invite && screen === "welcome" && (
         <div className="space-y-5">
           <Logo className="mx-auto w-full max-w-md" />
           <div className="space-y-3 rounded-2xl bg-white p-5 text-center shadow-sm">
@@ -336,6 +370,11 @@ export default function Home() {
             はじめての方へ：ねんちょーガイド
           </button>
           <p className="text-center text-xs text-gray-500">入力した内容や写真は保存しません。画面を閉じると消えます。</p>
+          {mode === "local" && adminAvailable && (
+            <button onClick={() => setScreen("admin")} className="w-full text-center text-sm text-blue-700 underline">
+              家族や知り合いを招待する（このPCで開いたときだけの管理画面）
+            </button>
+          )}
         </div>
       )}
 
@@ -345,7 +384,7 @@ export default function Home() {
         </p>
       )}
 
-      {screen === "app" && (
+      {!invite && screen === "app" && (
       <>
       {/* 今どこにいるか */}
       <nav className="sticky top-0 z-10 -mx-4 grid grid-cols-4 gap-1 border-b border-gray-300 bg-gray-50 px-2 py-2 text-xs sm:text-sm" aria-label="手順">
@@ -723,7 +762,7 @@ function LoginBox() {
     >
       <p className="font-bold">
         写真で登録するには、ログインしてください
-        <InfoTip>写真を自宅PCに届けるための仕組み（Supabase）に登録した、メールアドレスとパスワードです。ログインした本人だけが使えます。</InfoTip>
+        <InfoTip>招待されたときに決めた、メールアドレスとパスワードです。招待された人だけが使えます。パスワードを忘れたときは、招待した人に新しいリンクを作ってもらってください。</InfoTip>
       </p>
       <input type="email" autoComplete="username" placeholder="メールアドレス" className="w-full rounded-xl border-2 border-gray-300 p-3" value={email} onChange={(e) => setEmail(e.target.value)} />
       <input type="password" autoComplete="current-password" placeholder="パスワード" className="w-full rounded-xl border-2 border-gray-300 p-3" value={password} onChange={(e) => setPassword(e.target.value)} />
