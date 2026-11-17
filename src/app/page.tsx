@@ -4,12 +4,17 @@ import { useEffect, useRef, useState } from "react";
 import { BasicGuide, DependentsGuide } from "@/components/FamilyGuides";
 import { BasicFormImage, FormImage } from "@/components/FormImage";
 import { Glossary } from "@/components/Glossary";
+import { Bag, Book, Camera, Checklist, FormPen, Health, HeroFlow, House, Pension, PiggyBank, Postcard, Shield } from "@/components/Illustrations";
+import { InfoTip } from "@/components/InfoTip";
+import { NenchoGuide } from "@/components/NenchoGuide";
 import { Guide } from "@/components/Guide";
 import { HousingGuide } from "@/components/HousingGuide";
 import { Questionnaire } from "@/components/Questionnaire";
 import { ReviewStep, type Timing } from "@/components/ReviewStep";
 import { calculate } from "@/lib/calc";
 import { readCount, requiredDocs, type DocId } from "@/lib/docs";
+import { estimateSaving } from "@/lib/estimate";
+import { calcHousing, housingInputFrom } from "@/lib/housing";
 import { emptySelf, hasUnder23Dependent, under23DependentFor, type Family } from "@/lib/family";
 import { READ_PROMPT } from "@/lib/prompt.mjs";
 import { mergeResults, parsePasted, ReadResult } from "@/lib/schema";
@@ -49,10 +54,24 @@ async function shrink(file: File): Promise<{ type: string; data: string }> {
 
 const yen = (n: number) => n.toLocaleString("ja-JP");
 
+const DOC_ICON: Record<DocId, React.ReactNode> = {
+  life: <Shield className="h-10 w-10" />,
+  earthquake: <House quake className="h-10 w-10" />,
+  pension: <Pension className="h-10 w-10" />,
+  health: <Health className="h-10 w-10" />,
+  smallbiz: <PiggyBank className="h-10 w-10" />,
+  housing: <House className="h-10 w-10" />,
+  housingFirst: <House className="h-10 w-10" />,
+  previousJob: <Bag className="h-10 w-10" />,
+};
+
 export default function Home() {
   const [mode, setMode] = useState<Mode>("checking");
   const [token, setToken] = useState("");
   const [version, setVersion] = useState("");
+  // 最初の画面（welcome）、手順の画面（app）、ねんちょーガイド（guide）
+  const [screen, setScreen] = useState<"welcome" | "app" | "guide">("welcome");
+  const [guideFrom, setGuideFrom] = useState<"welcome" | "app">("welcome");
   const [step, setStep] = useState<Step>("questions");
   const [visited, setVisited] = useState<Step[]>(["questions"]);
 
@@ -213,6 +232,21 @@ export default function Home() {
   }
 
   const docs = requiredDocs(selected);
+
+  // 戻る金額の目安（アンケートの答えと読み取った書類から）
+  const calc = data ? calculate(data, { under23: effectiveUnder23 }) : null;
+  const insuranceDeduction = calc ? calc.lifeDeduction + calc.earthquake.deduction + calc.social.deduction + calc.smallBiz.deduction : 0;
+  const housingCredit = data && data.housing.length > 0 ? (calcHousing(housingInputFrom(data.housing)).amount ?? 0) : 0;
+  const mine =
+    family.self.salary > 0 && (insuranceDeduction > 0 || housingCredit > 0)
+      ? { ...estimateSaving(family, insuranceDeduction, housingCredit), note: "保険料控除・住宅ローン控除で所得税が安くなる金額の目安です。会社の社会保険料を給料の約14.7%として計算しています。" }
+      : null;
+
+  function openGuide() {
+    setGuideFrom(screen === "guide" ? guideFrom : screen === "app" ? "app" : "welcome");
+    setScreen("guide");
+    window.scrollTo({ top: 0 });
+  }
   const hasInsurance = !!data && data.life.length + data.earthquake.length + data.social.length + data.smallBiz.length > 0;
   const showHousing = selected.includes("housing") || (data?.housing.length ?? 0) > 0;
 
@@ -265,7 +299,66 @@ export default function Home() {
 
   return (
     <main className="mx-auto max-w-5xl space-y-5 p-4 text-gray-900">
-      <h1 className="text-xl font-bold">年末調整 記入お手本</h1>
+      <header className="flex items-center justify-between">
+        <h1 className="text-lg font-bold">年末調整 記入お手本</h1>
+        {screen !== "guide" && (
+          <button onClick={openGuide} className="flex items-center gap-1 rounded-full border border-green-600 bg-white px-3 py-1 text-sm text-green-700">
+            <Book className="h-5 w-5" />
+            ねんちょーガイド
+          </button>
+        )}
+      </header>
+
+      {screen === "guide" && (
+        <NenchoGuide
+          mine={mine}
+          onClose={() => {
+            setScreen(guideFrom);
+            window.scrollTo({ top: 0 });
+          }}
+          onStart={() => {
+            setScreen("app");
+            window.scrollTo({ top: 0 });
+          }}
+        />
+      )}
+
+      {screen === "welcome" && (
+        <div className="space-y-5">
+          <div className="space-y-3 rounded-2xl bg-white p-5 text-center shadow-sm">
+            <HeroFlow className="mx-auto w-full max-w-sm" />
+            <p className="text-xl font-bold leading-snug">
+              ハガキを撮るだけで、
+              <br />
+              年末調整の「お手本」ができます
+            </p>
+            <p className="text-sm text-gray-600">質問に答えて、届いたハガキを撮影。あとはお手本を見て書き写すだけです。</p>
+          </div>
+          <ol className="grid grid-cols-3 gap-2 text-center text-xs">
+            {[
+              [<Checklist key="a" className="mx-auto h-12 w-12" />, "質問に答える", "約2分"],
+              [<Camera key="b" className="mx-auto h-12 w-12" />, "ハガキを撮る", "1枚ずつ"],
+              [<FormPen key="c" className="mx-auto h-12 w-12" />, "お手本を見て書く", "書き写すだけ"],
+            ].map(([icon, t, sub], i) => (
+              <li key={i} className="rounded-2xl bg-white p-2 shadow-sm">
+                {icon}
+                <b className="block">
+                  {i + 1}. {t}
+                </b>
+                <span className="text-gray-500">{sub}</span>
+              </li>
+            ))}
+          </ol>
+          <button onClick={() => setScreen("app")} className="w-full rounded-full bg-blue-600 px-4 py-4 text-lg font-bold text-white">
+            はじめる
+          </button>
+          <button onClick={openGuide} className="flex w-full items-center justify-center gap-2 rounded-full border-2 border-green-600 bg-white px-4 py-3 font-bold text-green-700">
+            <Book className="h-6 w-6" />
+            はじめての方へ：ねんちょーガイド
+          </button>
+          <p className="text-center text-xs text-gray-500">入力した内容や写真は保存しません。画面を閉じると消えます。</p>
+        </div>
+      )}
 
       {mode === "badToken" && (
         <p className="rounded border border-red-400 bg-red-50 p-2 text-sm text-red-800">
@@ -273,6 +366,8 @@ export default function Home() {
         </p>
       )}
 
+      {screen === "app" && (
+      <>
       {/* 今どこにいるか */}
       <nav className="sticky top-0 z-10 -mx-4 grid grid-cols-4 gap-1 border-b border-gray-300 bg-gray-50 px-2 py-2 text-xs sm:text-sm" aria-label="手順">
         {STEPS.map((s, i) => {
@@ -312,17 +407,24 @@ export default function Home() {
       {step === "photos" && (
         <div className="space-y-4">
           <section className="space-y-2 rounded-lg border border-gray-300 bg-white p-3">
-            <h2 className="font-bold">用意する書類</h2>
+            <h2 className="flex items-center gap-2 font-bold">
+              <Postcard className="h-8 w-8" />
+              撮影する書類
+              <InfoTip>質問の答えから、必要な書類を選んでいます。撮影すると「読み取り済み」に変わります。同じ種類が何枚あっても、全部撮影してください。</InfoTip>
+            </h2>
             {docs.length === 0 ? (
-              <p className="text-sm">アンケートの答えでは、撮影が必要な書類はありません。手元に保険会社などのハガキがあれば、撮影してください。</p>
+              <p className="text-sm">質問の答えでは、撮影が必要な書類はありません。手元に保険会社などのハガキがあれば、撮影してください。</p>
             ) : (
               <ul className="space-y-2">
                 {docs.map((d) => {
                   const n = readCount(data, d.id);
                   return (
-                    <li key={d.id} className={`rounded border p-2 text-sm ${!d.photo ? "border-gray-300 bg-gray-50" : n > 0 ? "border-green-400 bg-green-50" : "border-orange-300"}`}>
+                    <li key={d.id} className={`rounded-2xl border-2 p-2 text-sm ${!d.photo ? "border-gray-200 bg-gray-50" : n > 0 ? "border-green-400 bg-green-50" : "border-orange-300 bg-white"}`}>
                       <div className="flex items-start justify-between gap-2">
-                        <b>{d.title}</b>
+                        <span className="flex items-center gap-2">
+                          {DOC_ICON[d.id]}
+                          <b>{d.title}</b>
+                        </span>
                         <span className={`shrink-0 rounded px-2 py-0.5 text-xs ${!d.photo ? "bg-gray-200" : n > 0 ? "bg-green-600 text-white" : "bg-orange-100 text-orange-800"}`}>
                           {!d.photo ? "撮影不要" : n > 0 ? `読み取り済み ${n}件` : "まだ"}
                         </span>
@@ -420,6 +522,15 @@ export default function Home() {
       {/* ④ お手本 */}
       {step === "result" && (
         <div className="space-y-6">
+          {mine && (
+            <section className="rounded-2xl bg-green-50 p-4 text-center">
+              <p className="text-sm">
+                あなたの場合、税金が安くなる目安
+                <InfoTip>{mine.note} 実際の金額は勤務先の計算で決まります。12月か1月の給料と一緒に戻るのがふつうです。</InfoTip>
+              </p>
+              <p className="text-3xl font-bold text-green-700">約 {yen(Math.round(mine.saving / 100) * 100)} 円</p>
+            </section>
+          )}
           <section className="rounded-lg border border-gray-300 bg-white p-3 text-sm">
             <h2 className="mb-1 font-bold">勤務先に出す申告書</h2>
             <p className="mb-2">上から順に、それぞれのお手本を見ながら手書きしてください。</p>
@@ -512,6 +623,9 @@ export default function Home() {
             </div>
           </section>
         </div>
+      )}
+
+      </>
       )}
 
       <Glossary />
