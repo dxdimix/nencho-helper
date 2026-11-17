@@ -361,7 +361,7 @@ export function Questionnaire({
     case 5:
       body = (
         <>
-          {header("あてはまるものを、全部タップ", <Shield className="h-20 w-20" />, "選んだものに合わせて、撮影する書類をお知らせします。分からないものは選ばなくて大丈夫です。届いたハガキを撮れば、自動で見分けます。")}
+          {header("あてはまるものを、全部タップ", <Shield className="h-20 w-20" />, "選んだものに合わせて、登録するハガキをお知らせします。分からないものは選ばなくて大丈夫です。届いたハガキを撮れば、自動で見分けます。")}
           <div className="grid grid-cols-2 gap-2">
             {DOC_CARDS.map((c) => {
               const on = selected.includes(c.id);
@@ -435,7 +435,7 @@ export function Questionnaire({
               <InfoTip>大学・専門学校などに通いながら働いている人で、所得が89万円以下（給料だけなら年収163万円以下）の場合です。</InfoTip>
             </label>
           </div>
-          <Next onClick={onNext} label="質問はおしまい。書類の撮影へ" />
+          <Next onClick={onNext} label="質問はおしまい。ハガキの登録へ" />
         </>
       );
   }

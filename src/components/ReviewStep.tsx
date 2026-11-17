@@ -147,7 +147,7 @@ export function ReviewStep({
 
       {checklist.length > 0 && (
       <Card step={++step} title="撮り忘れはありませんか？" done={pending.length === 0}>
-        <p className="mb-2 text-sm">アンケートで「あてはまる」と答えた書類です。まだ読み取れていないものは、撮影するか「持っていない」を選んでください。</p>
+        <p className="mb-2 text-sm">アンケートで「あてはまる」と答えた書類です。まだ登録していないものは、登録するか「手元にない・不要だった」を選んでください。</p>
         <div className="space-y-2">
           {checklist.map((c) => (
             <div key={c.id} className={`rounded border p-2 text-sm ${c.done || answers[c.id] === "ない" ? "border-green-400 bg-green-50" : "border-gray-300"}`}>
@@ -157,7 +157,7 @@ export function ReviewStep({
               </p>
               <p className="text-xs text-gray-600">{c.hint}</p>
               {c.done ? (
-                <p className="mt-1 text-xs text-green-700">読み取り済みです。同じ種類のハガキがほかにもあれば、追加で撮影してください。</p>
+                <p className="mt-1 text-xs text-green-700">登録済みです。同じ種類のハガキがほかにもあれば、追加で登録してください。</p>
               ) : (
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <button
@@ -167,7 +167,7 @@ export function ReviewStep({
                     手元にない・不要だった
                   </button>
                   <button onClick={onTakePhoto} className="rounded border border-blue-600 px-2 py-2 text-blue-700">
-                    持っている → 撮影する
+                    持っている → 登録する
                   </button>
                 </div>
               )}

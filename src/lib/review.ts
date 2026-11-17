@@ -161,3 +161,21 @@ export function setAmount(d: ReadResult, section: "life" | "earthquake" | "socia
   list[index] = { ...list[index], [key]: amount };
   return { ...d, [section]: list } as ReadResult;
 }
+
+export type Section = "life" | "earthquake" | "social" | "smallBiz" | "housing";
+
+/** 登録したハガキの一覧（画面に並べる用） */
+export function registeredItems(d: ReadResult): { section: Section; index: number; title: string; detail: string; amount: number | null }[] {
+  return [
+    ...d.life.map((i, index) => ({ section: "life" as const, index, title: i.insurer || "生命保険", detail: `${i.category}・${i.system}${i.policyType ? `・${i.policyType}` : ""}`, amount: i.amount })),
+    ...d.earthquake.map((i, index) => ({ section: "earthquake" as const, index, title: i.insurer || "地震保険", detail: i.category === "地震" ? "地震保険" : "旧長期損害保険", amount: i.amount })),
+    ...d.social.map((i, index) => ({ section: "social" as const, index, title: i.kind, detail: [i.payee, i.burdenPerson].filter(Boolean).join("・"), amount: i.amount })),
+    ...d.smallBiz.map((i, index) => ({ section: "smallBiz" as const, index, title: /個人型/.test(i.kind) ? "iDeCo" : i.kind.replace(/^.*?(企業型|小規模|心身).*$/, "$1"), detail: i.kind, amount: i.amount })),
+    ...d.housing.map((i, index) => ({ section: "housing" as const, index, title: i.docKind === "控除申告書" ? "住宅ローンの申告書" : `住宅ローン（${i.lender || "残高証明書"}）`, detail: i.docKind, amount: i.yearEndBalance })),
+  ];
+}
+
+/** 登録したハガキを1件消す */
+export function removeItem(d: ReadResult, section: Section, index: number): ReadResult {
+  return { ...d, [section]: (d[section] as unknown[]).filter((_, i) => i !== index) } as ReadResult;
+}

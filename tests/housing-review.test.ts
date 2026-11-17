@@ -90,3 +90,15 @@ describe("11月30日以前の年末調整の読み替え", () => {
     expect(hasUnder23Dependent(f, 2026, 580_000)).toBe(false);
   });
 });
+
+import { registeredItems, removeItem } from "../src/lib/review";
+describe("登録したハガキの一覧", () => {
+  it("一覧に並べ、1件ずつ消せる", () => {
+    const d = ReadResult.parse({
+      life: [{ insurer: "A生命", policyType: "", period: "", contractor: "", beneficiary: "", category: "一般", system: "新", amount: 1000, confidence: "高" }],
+      smallBiz: [{ kind: "確定拠出年金法に規定する個人型年金加入者掛金", amount: 2000, confidence: "高" }],
+    });
+    expect(registeredItems(d).map((x) => x.title)).toEqual(["A生命", "iDeCo"]);
+    expect(registeredItems(removeItem(d, "life", 0)).map((x) => x.title)).toEqual(["iDeCo"]);
+  });
+});

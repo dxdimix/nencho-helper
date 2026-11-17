@@ -6,6 +6,7 @@ import { BasicFormImage, FormImage } from "@/components/FormImage";
 import { Glossary } from "@/components/Glossary";
 import { Bag, Book, Camera, Checklist, FormPen, Health, HeroFlow, House, Pension, PiggyBank, Postcard, Shield } from "@/components/Illustrations";
 import { InfoTip } from "@/components/InfoTip";
+import { ManualEntry } from "@/components/ManualEntry";
 import { NenchoGuide } from "@/components/NenchoGuide";
 import { Guide } from "@/components/Guide";
 import { HousingGuide } from "@/components/HousingGuide";
@@ -15,11 +16,11 @@ import { calculate } from "@/lib/calc";
 import { readCount, requiredDocs, type DocId } from "@/lib/docs";
 import { estimateSaving } from "@/lib/estimate";
 import { calcHousing, housingInputFrom } from "@/lib/housing";
+import { registeredItems, removeItem } from "@/lib/review";
 import { emptySelf, hasUnder23Dependent, under23DependentFor, type Family } from "@/lib/family";
-import { READ_PROMPT } from "@/lib/prompt.mjs";
 import { mergeResults, parsePasted, ReadResult } from "@/lib/schema";
 
-// 画面の流れ：① アンケート → ② 書類の撮影 → ③ 確認 → ④ お手本（すべての申告書を1ページに表示）
+// 画面の流れ：① アンケート → ② ハガキの登録（写真か手入力） → ③ 確認 → ④ お手本（すべての申告書を1ページに表示）
 //
 // 個人情報の扱い: アンケートの答え・写真・読み取り結果は画面の状態（メモリ）にだけ持つ。
 // localStorage などには保存しない。写真は自宅PCのサーバー（同じ Wi-Fi 内）にだけ送る。
@@ -29,7 +30,7 @@ type Step = "questions" | "photos" | "review" | "result";
 
 const STEPS: { id: Step; label: string }[] = [
   { id: "questions", label: "アンケート" },
-  { id: "photos", label: "書類の撮影" },
+  { id: "photos", label: "ハガキの登録" },
   { id: "review", label: "確認" },
   { id: "result", label: "お手本" },
 ];
@@ -87,14 +88,14 @@ export default function Home() {
   const [reading, setReading] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [progress, setProgress] = useState({ done: 0, total: 0 });
-  const [pasted, setPasted] = useState("");
-  const [copied, setCopied] = useState(false);
   const [selfTest, setSelfTest] = useState<{ state: "idle" | "running" | "ok" | "ng"; message: string }>({ state: "idle", message: "" });
   const cameraRef = useRef<HTMLInputElement>(null);
   const libraryRef = useRef<HTMLInputElement>(null);
 
   // ④ お手本
   const [view, setView] = useState<"image" | "table">("image");
+  // ② で「手で入力」を開いているか
+  const [manualOpen, setManualOpen] = useState(false);
   const [under23, setUnder23] = useState(false);
   // 勤務先が11月30日以前に年末調整をするなら、23歳未満の扶養親族の所得の基準を58万円に読み替える
   const under23IncomeLimit = timing === "11月以前" ? 580_000 : 620_000;
@@ -141,6 +142,13 @@ export default function Home() {
     // 新しく読み取ったら、確認からやり直す
     setVisited((v) => v.filter((x) => x !== "result"));
     return true;
+  }
+
+  // 手で入力した1件を追加する
+  function addPart(part: Record<string, unknown>) {
+    const parsed = ReadResult.parse(part);
+    setData((prev) => (prev ? mergeResults(prev, parsed) : parsed));
+    setVisited((v) => v.filter((x) => x !== "result"));
   }
 
   // 1回に送る枚数（サーバーの MAX_IMAGES と合わせる）
@@ -208,21 +216,10 @@ export default function Home() {
     }
   }
 
-  async function copyPrompt() {
-    try {
-      await navigator.clipboard.writeText(READ_PROMPT);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setError("コピーできませんでした。「依頼文の中身を見る」を開き、長押しで選択してコピーしてください。");
-    }
-  }
-
   function clearAll() {
     if (!window.confirm("入力した内容と読み取った内容を、すべて消去します。よろしいですか？")) return;
     setData(null);
     setError("");
-    setPasted("");
     setTiming(null);
     setFamily({ self: emptySelf(), spouse: null, dependents: [] });
     setSelected([]);
@@ -249,43 +246,6 @@ export default function Home() {
   }
   const hasInsurance = !!data && data.life.length + data.earthquake.length + data.social.length + data.smallBiz.length > 0;
   const showHousing = selected.includes("housing") || (data?.housing.length ?? 0) > 0;
-
-  const pasteFlow = (
-    <div className="space-y-3 text-sm">
-      <ol className="list-decimal space-y-1 pl-5">
-        <li>「依頼文をコピー」を押します。</li>
-        <li>
-          ChatGPT・Claude・Gemini など、写真を読めるAIのチャットを開きます。
-          <b>書類の写真を添付し、同じメッセージに依頼文を貼り付けて</b>送ります。
-        </li>
-        <li>AIの回答をコピーし、下の欄に貼り付けて「読み込む」を押します。書類が複数あるときは、1枚ずつ繰り返してもかまいません。</li>
-      </ol>
-      <button onClick={copyPrompt} className="rounded bg-blue-600 px-4 py-2 text-white">
-        {copied ? "コピーしました" : "依頼文をコピー"}
-      </button>
-      <details>
-        <summary className="cursor-pointer text-gray-600">依頼文の中身を見る</summary>
-        <pre className="mt-2 max-h-64 overflow-auto whitespace-pre-wrap rounded bg-gray-100 p-2 text-xs">{READ_PROMPT}</pre>
-      </details>
-      <textarea
-        value={pasted}
-        onChange={(e) => setPasted(e.target.value)}
-        placeholder="AIの回答をそのまま貼り付けてください"
-        className="h-32 w-full rounded border border-gray-400 p-2 font-mono text-xs"
-        autoComplete="off"
-        spellCheck={false}
-      />
-      <button
-        onClick={() => {
-          if (addResult(pasted)) setPasted("");
-        }}
-        disabled={!pasted.trim()}
-        className="rounded bg-blue-600 px-4 py-2 text-white disabled:bg-gray-400"
-      >
-        読み込む
-      </button>
-    </div>
-  );
 
   const viewToggle = (
     <div className="grid grid-cols-2 overflow-hidden rounded border border-gray-400 text-sm">
@@ -406,17 +366,18 @@ export default function Home() {
         />
       )}
 
-      {/* ② 書類の撮影 */}
+      {/* ② ハガキの登録（写真か手入力を選んで、1枚ずつ続けて登録する） */}
       {step === "photos" && (
         <div className="space-y-4">
-          <section className="space-y-2 rounded-lg border border-gray-300 bg-white p-3">
+          {/* 登録が必要なハガキ（アンケートの答えから） */}
+          <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-3">
             <h2 className="flex items-center gap-2 font-bold">
               <Postcard className="h-8 w-8" />
-              撮影する書類
-              <InfoTip>質問の答えから、必要な書類を選んでいます。撮影すると「読み取り済み」に変わります。同じ種類が何枚あっても、全部撮影してください。</InfoTip>
+              登録するハガキ
+              <InfoTip>質問の答えから、必要なハガキを選んでいます。登録すると「登録済み」に変わります。同じ種類が何枚あっても、全部登録してください。</InfoTip>
             </h2>
             {docs.length === 0 ? (
-              <p className="text-sm">質問の答えでは、撮影が必要な書類はありません。手元に保険会社などのハガキがあれば、撮影してください。</p>
+              <p className="text-sm">質問の答えでは、登録が必要なハガキはありません。手元に保険会社などのハガキがあれば、登録してください。</p>
             ) : (
               <ul className="space-y-2">
                 {docs.map((d) => {
@@ -429,7 +390,7 @@ export default function Home() {
                           <b>{d.title}</b>
                         </span>
                         <span className={`shrink-0 rounded px-2 py-0.5 text-xs ${!d.photo ? "bg-gray-200" : n > 0 ? "bg-green-600 text-white" : "bg-orange-100 text-orange-800"}`}>
-                          {!d.photo ? "撮影不要" : n > 0 ? `読み取り済み ${n}件` : "まだ"}
+                          {!d.photo ? "登録不要" : n > 0 ? `登録済み ${n}件` : "まだ"}
                         </span>
                       </div>
                       <p className="mt-1 text-xs text-gray-700">{d.how}</p>
@@ -440,79 +401,115 @@ export default function Home() {
             )}
           </section>
 
-          {mode === "local" && (
-            <section className="space-y-3">
-              <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => sendPhotos(e.target.files)} />
-              <input ref={libraryRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => sendPhotos(e.target.files)} />
-              <p className="text-sm">書類を1枚ずつ撮影してください。どの書類か分からなくても大丈夫です。年末調整に使わない書類なら、その旨を案内します。</p>
-              <div className="grid gap-2 sm:grid-cols-[2fr_1fr]">
-                <button onClick={() => cameraRef.current?.click()} disabled={reading} className="rounded-lg bg-blue-600 px-4 py-5 text-lg font-bold text-white disabled:bg-gray-400">
-                  {data ? "次の書類を撮影" : "書類を撮影"}
-                </button>
-                <button onClick={() => libraryRef.current?.click()} disabled={reading} className="rounded-lg border border-gray-400 bg-white px-4 py-3 disabled:text-gray-400">
-                  保存済みの写真から選ぶ（まとめて選べます）
-                </button>
-              </div>
-              {reading && (
-                <p className="rounded bg-blue-50 p-3 text-sm text-blue-800" role="status">
-                  PCの Claude Code が読み取っています…（{elapsed} 秒）
-                  {progress.total > 1 && <>　{progress.done} / {progress.total} 枚完了</>}
-                  <br />
-                  1回（最大 {BATCH} 枚）あたり 30 秒〜2 分ほどかかります。
-                </p>
-              )}
-            </section>
-          )}
-
-          {mode === "paste" && (
-            <section className="space-y-2">
-              <p className="rounded bg-yellow-50 p-2 text-xs text-yellow-900">
-                撮影してすぐ読み取るには、自宅PCでアプリを起動し、PCの画面に出るアドレスをスマホで開いてください。この画面では、AIのチャットを使う方法で読み取れます。
+          {/* 登録の方法を選ぶ */}
+          <section className="space-y-2">
+            <h2 className="text-center font-bold">{data ? "続けて、次のハガキを登録" : "ハガキを1枚ずつ登録しましょう"}</h2>
+            <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => sendPhotos(e.target.files)} />
+            <input ref={libraryRef} type="file" accept="image/*" multiple className="hidden" onChange={(e) => sendPhotos(e.target.files)} />
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => {
+                  setManualOpen(false);
+                  cameraRef.current?.click();
+                }}
+                disabled={mode !== "local" || reading}
+                className="flex flex-col items-center rounded-2xl border-2 border-blue-600 bg-blue-600 p-3 font-bold text-white disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400"
+              >
+                <Camera className="h-14 w-14 rounded-xl bg-white" />
+                写真で登録
+                <span className="text-xs font-normal">撮るだけで自動で読み取り</span>
+              </button>
+              <button
+                onClick={() => setManualOpen(true)}
+                disabled={reading}
+                className={`flex flex-col items-center rounded-2xl border-2 p-3 font-bold ${manualOpen ? "border-blue-600 bg-blue-50 text-blue-700" : "border-blue-600 bg-white text-blue-700"}`}
+              >
+                <FormPen className="h-14 w-14" />
+                手で入力
+                <span className="text-xs font-normal">ハガキを見ながら入力</span>
+              </button>
+            </div>
+            {mode === "local" ? (
+              <button onClick={() => libraryRef.current?.click()} disabled={reading} className="w-full text-sm text-blue-700 underline disabled:text-gray-400">
+                保存済みの写真から選ぶ（まとめて選べます）
+              </button>
+            ) : (
+              <p className="text-center text-xs text-gray-600">
+                「写真で登録」は、自宅PCで開いたときに使えます。
+                <InfoTip>自宅のPCでアプリを起動して、PCの画面に出るQRコードからこのページを開くと、写真を撮るだけで自動で読み取れます。</InfoTip>
               </p>
-              {pasteFlow}
+            )}
+            {reading && (
+              <p className="rounded-2xl bg-blue-50 p-3 text-sm text-blue-800" role="status">
+                読み取っています…（{elapsed} 秒）
+                {progress.total > 1 && <>　{progress.done} / {progress.total} 枚完了</>}
+                <br />
+                1回あたり 30 秒〜1 分ほどかかります。終わるとこの下の一覧に追加されます。
+              </p>
+            )}
+            {error && <p className="rounded border border-red-400 bg-red-50 p-2 text-sm text-red-800">{error}</p>}
+            {manualOpen && <ManualEntry selected={selected} onAdd={addPart} onClose={() => setManualOpen(false)} />}
+          </section>
+
+          {/* 登録したハガキ */}
+          {data && (
+            <section className="space-y-2 rounded-2xl border border-gray-200 bg-white p-3">
+              <h2 className="font-bold">登録したハガキ（{registeredItems(data).length}件）</h2>
+              {registeredItems(data).length === 0 ? (
+                <p className="text-sm text-gray-600">まだありません。</p>
+              ) : (
+                <ul className="divide-y divide-gray-100">
+                  {registeredItems(data).map((r) => (
+                    <li key={`${r.section}-${r.index}`} className="flex items-center justify-between gap-2 py-2 text-sm">
+                      <span>
+                        <b>{r.title}</b>
+                        <span className="block text-xs text-gray-600">{r.detail}</span>
+                      </span>
+                      <span className="flex shrink-0 items-center gap-3">
+                        {r.amount !== null && <span className="font-mono">{yen(r.amount)}円</span>}
+                        <button
+                          onClick={() => window.confirm(`「${r.title}」を一覧から消しますか？`) && setData(removeItem(data, r.section, r.index))}
+                          className="text-xs text-red-600 underline"
+                        >
+                          消す
+                        </button>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {data.otherDocs.length > 0 && <p className="text-xs text-gray-600">ほかに、年末調整に使わない書類が{data.otherDocs.length}件ありました（次の確認で説明します）。</p>}
             </section>
-          )}
-
-          {error && <p className="rounded border border-red-400 bg-red-50 p-2 text-sm text-red-800">{error}</p>}
-
-          {(selected.includes("health") || selected.includes("pension")) && (
-            <ManualSocial onAdd={(item) => setData((prev) => mergeResults(prev ?? ReadResult.parse({}), ReadResult.parse({ social: [item] })))} />
           )}
 
           <div className="grid gap-2">
             <button
               onClick={() => go(data ? "review" : "result")}
               disabled={reading}
-              className="w-full rounded-lg bg-blue-600 px-4 py-4 text-lg font-bold text-white disabled:bg-gray-300"
+              className="w-full rounded-full bg-blue-600 px-4 py-4 text-lg font-bold text-white disabled:bg-gray-300"
             >
-              {data ? "撮り終えたら：次へ（確認）" : "撮影する書類がないので、お手本へ進む"}
+              {data ? "登録が終わったら：次へ（確認）" : "登録するハガキがないので、お手本へ進む"}
             </button>
             <button onClick={() => go("questions")} className="text-sm text-blue-700 underline">
-              ← アンケートに戻る
+              ← 質問に戻る
             </button>
           </div>
 
           {mode === "local" && (
-            <>
-              <details className="text-sm">
-                <summary className="cursor-pointer text-gray-600">動作チェック（見本のハガキで試す）</summary>
-                <div className="mt-2 space-y-2">
-                  <p>架空の内容の見本ハガキを、PCの Claude Code で読み取れるかを確かめます。結果はお手本には加えません。</p>
-                  <button onClick={runSelfTest} disabled={selfTest.state === "running" || reading} className="rounded border border-blue-600 px-3 py-1 text-blue-700 disabled:text-gray-400">
-                    動作チェックを実行
-                  </button>
-                  {selfTest.message && (
-                    <p className={`rounded p-2 ${selfTest.state === "ok" ? "bg-green-50 text-green-800" : selfTest.state === "ng" ? "bg-red-50 text-red-800" : "bg-blue-50 text-blue-800"}`}>
-                      {selfTest.message}
-                    </p>
-                  )}
-                </div>
-              </details>
-              <details className="text-sm">
-                <summary className="cursor-pointer text-gray-600">うまく読み取れないとき：AIのチャットを使う方法</summary>
-                <div className="mt-2">{pasteFlow}</div>
-              </details>
-            </>
+            <details className="text-sm">
+              <summary className="cursor-pointer text-gray-600">動作チェック（見本のハガキで試す）</summary>
+              <div className="mt-2 space-y-2">
+                <p>架空の内容の見本ハガキを、PCの Claude Code で読み取れるかを確かめます。結果は一覧には加えません。</p>
+                <button onClick={runSelfTest} disabled={selfTest.state === "running" || reading} className="rounded border border-blue-600 px-3 py-1 text-blue-700 disabled:text-gray-400">
+                  動作チェックを実行
+                </button>
+                {selfTest.message && (
+                  <p className={`rounded p-2 ${selfTest.state === "ok" ? "bg-green-50 text-green-800" : selfTest.state === "ng" ? "bg-red-50 text-red-800" : "bg-blue-50 text-blue-800"}`}>
+                    {selfTest.message}
+                  </p>
+                )}
+              </div>
+            </details>
           )}
         </div>
       )}
@@ -621,7 +618,7 @@ export default function Home() {
             </ul>
             <div className="mt-3 flex flex-wrap gap-2">
               <button onClick={() => go("questions")} className="rounded border border-gray-400 px-3 py-2">アンケートを直す</button>
-              <button onClick={() => go("photos")} className="rounded border border-gray-400 px-3 py-2">書類を追加で撮影する</button>
+              <button onClick={() => go("photos")} className="rounded border border-gray-400 px-3 py-2">ハガキを追加で登録する</button>
               <button onClick={clearAll} className="rounded border border-red-400 px-3 py-2 text-red-700">すべて消去する</button>
             </div>
           </section>
@@ -634,67 +631,9 @@ export default function Home() {
       <Glossary />
 
       <footer className="pt-4 text-center text-[10px] text-gray-400">
-        {mode === "local" ? `自宅PCモード${version ? `・版 ${version}` : ""}` : mode === "paste" ? "チャット貼り付けモード" : ""}
+        {mode === "local" ? `自宅PCモード${version ? `・版 ${version}` : ""}` : mode === "paste" ? "手入力モード" : ""}
       </footer>
     </main>
-  );
-}
-
-// 証明書が届かない社会保険料（家族の国民健康保険料など）を手で入力する
-function ManualSocial({ onAdd }: { onAdd: (item: Record<string, unknown>) => void }) {
-  const [kind, setKind] = useState("国民健康保険料");
-  const [payee, setPayee] = useState("");
-  const [person, setPerson] = useState("");
-  const [relation, setRelation] = useState("");
-  const [amount, setAmount] = useState(0);
-  const [added, setAdded] = useState("");
-  return (
-    <details className="rounded-lg border border-gray-300 bg-white p-3 text-sm">
-      <summary className="cursor-pointer font-bold">証明書がない保険料を、手で入力する</summary>
-      <div className="mt-2 grid gap-2 sm:grid-cols-2">
-        <label className="block">
-          <span className="text-gray-700">種類</span>
-          <select className="mt-1 w-full rounded border border-gray-400 p-2" value={kind} onChange={(e) => setKind(e.target.value)}>
-            {["国民健康保険料", "介護保険料", "後期高齢者医療保険料", "国民年金保険料", "国民年金基金掛金"].map((k) => (
-              <option key={k}>{k}</option>
-            ))}
-          </select>
-        </label>
-        <label className="block">
-          <span className="text-gray-700">支払先（例：〇〇市）</span>
-          <input className="mt-1 w-full rounded border border-gray-400 p-2" value={payee} onChange={(e) => setPayee(e.target.value)} autoComplete="off" />
-        </label>
-        <label className="block">
-          <span className="text-gray-700">保険料を払うことになっている人（例：父）</span>
-          <input className="mt-1 w-full rounded border border-gray-400 p-2" value={person} onChange={(e) => setPerson(e.target.value)} autoComplete="off" />
-        </label>
-        <label className="block">
-          <span className="text-gray-700">その人とあなたとの続柄</span>
-          <input className="mt-1 w-full rounded border border-gray-400 p-2" value={relation} onChange={(e) => setRelation(e.target.value)} autoComplete="off" />
-        </label>
-        <label className="block">
-          <span className="text-gray-700">あなたが今年払った金額（1年分）</span>
-          <input
-            inputMode="numeric"
-            className="mt-1 w-full rounded border border-gray-400 p-2 text-right font-mono"
-            value={amount ? yen(amount) : ""}
-            onChange={(e) => setAmount(Number(e.target.value.replace(/[^\d]/g, "")) || 0)}
-          />
-        </label>
-      </div>
-      <button
-        disabled={amount === 0}
-        onClick={() => {
-          onAdd({ kind, payee, burdenPerson: person, burdenRelation: relation, amount, confidence: "高", note: "手で入力" });
-          setAdded(`${kind} ${yen(amount)}円を追加しました。`);
-          setAmount(0);
-        }}
-        className="mt-2 rounded bg-blue-600 px-4 py-2 text-white disabled:bg-gray-300"
-      >
-        追加する
-      </button>
-      {added && <p className="mt-1 text-green-700">{added}</p>}
-    </details>
   );
 }
 
