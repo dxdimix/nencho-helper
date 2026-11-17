@@ -13,9 +13,9 @@
    URL の ?t= の合言葉（.local-token）で、同じ Wi-Fi の他人の利用を防ぐ。
    外出先からは Tailscale（PC とスマホだけの私設ネットワーク）経由で使う。インターネットへの公開（トンネル等）はしない。
 2. 外出先モード（cloud）: GitHub Pages 版に Supabase の設定（GitHub の Actions の Variables）が入っている場合。DIMY と同じく Supabase を中継する。
-   画面がログインした本人として read_jobs に写真を追加 → 自宅PCのサーバー（local/cloud.mjs、.env.local の secret キー）が3秒ごとに受け取り、
+   表はすべて専用スキーマ nencho（同じ Supabase プロジェクトのほかのアプリと混ぜない）。画面がログインした本人として nencho.read_jobs に写真を追加 → 自宅PCのサーバー（local/cloud.mjs、.env.local の secret キー）が3秒ごとに受け取り、
    local/reader.mjs で読み取って結果を書き、写真を消す → 画面が結果を受け取って行を消す。15分以上前の行は自動で消す。PCのオンライン表示は Presence（nencho-presence）。
-   招待制（FX シグナル監視と同じ）：写真を送れるのは nencho_members にいる人だけ。招待リンクは自宅PCの管理画面（local/admin.mjs、/api/admin/*、
+   招待制（FX シグナル監視と同じ）：写真を送れるのは nencho.members にいる人だけ。招待リンクは自宅PCの管理画面（local/admin.mjs、/api/admin/*、
    src/components/Invite.tsx）で作り、LINE などで送る。リンク（?token_hash=…&type=invite|recovery）を開いた人は verifyOtp → パスワード設定。
 3. 手入力モード: GitHub Pages 版で Supabase の設定がない場合。ハガキの内容を手で入力する（依頼文をコピーしてAIチャットに送る方式は分かりにくいので廃止した）。
 
@@ -36,7 +36,7 @@ claude.ai などのブラウザ画面の自動操作は規約違反なので行�
 - 依頼文: src/lib/prompt.mjs（画面とサーバーの両方が使うため .mjs）
 - 読み取り項目の定義と貼り付けの解析: src/lib/schema.ts（prompt.mjs の出力形式と必ずそろえる）
 - 自宅PCサーバー: local/server.mjs（画面の配信と api/*）、写真の読み取り: local/reader.mjs、Supabase 経由の受け取り: local/cloud.mjs（テストは tests/cloud.test.ts）
-- Supabase の表: supabase/migrations/（SQL Editor で実行）。画面側: src/lib/cloud.ts
+- Supabase の表: supabase/migrations/20261117000000_nencho.sql（SQL Editor で実行。何度実行してもよい。Exposed schemas に nencho を追加）。画面側: src/lib/cloud.ts
 - Windows 起動用: start-windows.bat
 - 控除額の計算: src/lib/calc.ts（国税庁の計算式。テストは tests/calc.test.ts）
   - 令和8年分の特例: 23歳未満の扶養親族がいると、一般生命保険料（新）の計算式が変わり、新＋旧の上限が6万円になる（画面のチェックで切り替え）。

@@ -34,7 +34,7 @@ export function createAdmin({ url, secretKey, appUrl }) {
   return {
     /** 招待した人の一覧 */
     async members() {
-      const { data, error } = await sb.from("nencho_members").select("user_id,email,invited_at").order("invited_at");
+      const { data, error } = await sb.schema("nencho").from("members").select("user_id,email,invited_at").order("invited_at");
       if (error) throw new Error(`招待した人の一覧を取得できません（${error.message}）。Supabase で SQL を実行したか確認してください。`);
       const { data: auth } = await sb.auth.admin.listUsers({ page: 1, perPage: 200 });
       const byId = new Map((auth?.users ?? []).map((u) => [u.id, u]));
@@ -53,14 +53,14 @@ export function createAdmin({ url, secretKey, appUrl }) {
       if (error) throw new Error(`招待リンクを作れませんでした（${error.message}）`);
       const userId = data.user?.id ?? existing?.id;
       if (!userId) throw new Error("招待した人のアカウントを確認できませんでした。");
-      const { error: e2 } = await sb.from("nencho_members").upsert({ user_id: userId, email: clean }, { onConflict: "user_id" });
+      const { error: e2 } = await sb.schema("nencho").from("members").upsert({ user_id: userId, email: clean }, { onConflict: "user_id" });
       if (e2) throw new Error(`招待した人を保存できませんでした（${e2.message}）`);
       return { email: clean, existing: !!existing, link: buildInviteLink(appUrl, data.properties.hashed_token, type) };
     },
 
     /** 招待を取り消す（アカウント自体は消さない。以前のシステムで使っている可能性があるため） */
     async remove(userId) {
-      const { error } = await sb.from("nencho_members").delete().eq("user_id", userId);
+      const { error } = await sb.schema("nencho").from("members").delete().eq("user_id", userId);
       if (error) throw new Error(`取り消せませんでした（${error.message}）`);
     },
   };

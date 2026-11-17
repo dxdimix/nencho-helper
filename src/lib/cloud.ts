@@ -78,7 +78,7 @@ const WAIT_MS = 5 * 60 * 1000;
 export async function cloudRead(images: { type: string; data: string }[], onWait?: (status: string) => void): Promise<string> {
   const c = cloud();
   if (!c) throw new Error("この画面は、外出先から使う設定になっていません。");
-  const { data: row, error } = await c.from("read_jobs").insert({ images }).select("id").single();
+  const { data: row, error } = await c.schema("nencho").from("read_jobs").insert({ images }).select("id").single();
   if (error?.code === "42501") throw new Error("このアカウントは招待されていないため、写真で登録できません。招待した人に確認してください。");
   if (error || !row) throw new Error(`写真を送れませんでした（${error?.message ?? "不明"}）。`);
   const id = row.id as string;
@@ -86,7 +86,7 @@ export async function cloudRead(images: { type: string; data: string }[], onWait
     const started = Date.now();
     while (Date.now() - started < WAIT_MS) {
       await new Promise((r) => setTimeout(r, 2000));
-      const { data, error: e } = await c.from("read_jobs").select("status,result,error").eq("id", id).single();
+      const { data, error: e } = await c.schema("nencho").from("read_jobs").select("status,result,error").eq("id", id).single();
       if (e) continue; // 一時的な通信の失敗は、待ち続ける
       onWait?.(data.status);
       if (data.status === "done") return data.result ?? "";
@@ -94,6 +94,6 @@ export async function cloudRead(images: { type: string; data: string }[], onWait
     }
     throw new Error("自宅PCから返事がありません。PCでアプリが起動しているか確認してください。");
   } finally {
-    await c.from("read_jobs").delete().eq("id", id);
+    await c.schema("nencho").from("read_jobs").delete().eq("id", id);
   }
 }

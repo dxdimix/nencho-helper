@@ -15,7 +15,7 @@ const KEEP_MS = 15 * 60 * 1000;
 
 /** Supabase とのやりとり（テストでは偽物に差し替える） */
 export function supabaseRepo(client) {
-  const table = () => client.from("read_jobs");
+  const table = () => client.schema("nencho").from("read_jobs");
   return {
     async nextPending() {
       const { data, error } = await table().select("id").eq("status", "pending").order("created_at").limit(1);

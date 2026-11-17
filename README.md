@@ -50,11 +50,12 @@ DIMY と同じ仕組みです。スマホの画面（GitHub Pages 版）→ Supa
 
 ### 1. Supabase（最初の1回だけ）
 1. https://supabase.com/dashboard でプロジェクトを開きます（新しく作る場合は Region を Tokyo に）。
-2. 左のメニューの「SQL Editor」で、次の2つの SQL を順に実行します（中身を貼り付けて「Run」）。
-   - `supabase/migrations/20261117000000_read_jobs.sql`
-   - `supabase/migrations/20261117010000_members.sql`（招待制にするための表）
-3. 「Authentication」→「Sign In / Providers」で「Allow new users to sign up」をオフにします（他人が勝手に登録できないようにするため）。
-4. 「Project Settings」→「Data API」で **Project URL**、「API Keys」で **Publishable key**（`sb_publishable_`）と **Secret key**（`sb_secret_`）を控えます。
+2. 左のメニューの「SQL Editor」で、`supabase/migrations/20261117000000_nencho.sql` の中身を貼り付けて「Run」を押します。
+   - 表はすべて専用の「nencho」スキーマに作るので、同じプロジェクトのほかのアプリと混ざりません。
+   - 以前の手順で public に read_jobs を作っていた場合も、この SQL で nencho に移ります。何度実行しても大丈夫です。
+3. 「Project Settings」→「Data API」の「**Exposed schemas**」に `nencho` を追加して保存します（画面から nencho の表を使えるようにするため）。
+4. 「Authentication」→「Sign In / Providers」で「Allow new users to sign up」をオフにします（他人が勝手に登録できないようにするため。ほかのアプリで新規登録を使う場合はオンのままでも、招待していない人はサクッとねんちょーを使えません）。
+5. 「Project Settings」→「Data API」で **Project URL**、「API Keys」で **Publishable key**（`sb_publishable_`）と **Secret key**（`sb_secret_`）を控えます。
 
 アカウントは、ここでは作りません。あとで自宅PCの管理画面から招待します。
 
