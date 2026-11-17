@@ -69,6 +69,7 @@ const TYPES = {
   ".ico": "image/x-icon",
   ".txt": "text/plain; charset=utf-8",
   ".woff2": "font/woff2",
+  ".webmanifest": "application/manifest+json",
 };
 
 const EXT = { "image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp" };
@@ -225,7 +226,7 @@ server.listen(PORT, "0.0.0.0", () => {
   const lan = ips.filter((ip) => !isTailscale(ip));
   const url = (ip) => `http://${ip}:${PORT}/?t=${TOKEN}`;
 
-  console.log("\n年末調整 記入お手本 を起動しました。");
+  console.log("\nサクッとねんちょー を起動しました。");
   console.log(`（Claude Code: ${CLAUDE_BIN === "claude" ? "claude コマンドを PATH から探します" : CLAUDE_BIN}）\n`);
   if (ts) {
     console.log("■ 家でも外出先でも使えるアドレス（スマホの Tailscale をオンにして開く）");

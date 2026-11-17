@@ -300,7 +300,10 @@ export default function Home() {
   return (
     <main className="mx-auto max-w-5xl space-y-5 p-4 text-gray-900">
       <header className="flex items-center justify-between">
-        <h1 className="text-lg font-bold">年末調整 記入お手本</h1>
+        <h1 className="leading-tight">
+          <span className="block text-lg font-bold text-blue-700">サクッとねんちょー</span>
+          <span className="block text-[11px] text-gray-500">撮って、答えて、書き写すだけ</span>
+        </h1>
         {screen !== "guide" && (
           <button onClick={openGuide} className="flex items-center gap-1 rounded-full border border-green-600 bg-white px-3 py-1 text-sm text-green-700">
             <Book className="h-5 w-5" />

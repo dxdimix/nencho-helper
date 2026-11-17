@@ -1,4 +1,4 @@
-# 年末調整 記入お手本：Windows 用の自動セットアップ
+# サクッとねんちょー：Windows 用の自動セットアップ
 # PowerShell で次の1行を実行すると、必要なものを確認・インストールして起動する。
 #   irm https://raw.githubusercontent.com/dxdimix/nencho-helper/main/setup-windows.ps1 | iex
 # 何度実行しても問題ない（入っているものはそのまま使い、アプリは最新版に更新する）。
@@ -124,11 +124,14 @@ Ok "準備できました"
 Step "デスクトップにショートカットを作っています"
 $Desktop = [Environment]::GetFolderPath("Desktop")
 $Shell = New-Object -ComObject WScript.Shell
-$Link = $Shell.CreateShortcut((Join-Path $Desktop "年末調整お手本.lnk"))
+# 以前の名前のショートカットがあれば消す
+$OldLink = Join-Path $Desktop "年末調整お手本.lnk"
+if (Test-Path $OldLink) { Remove-Item $OldLink -Force }
+$Link = $Shell.CreateShortcut((Join-Path $Desktop "サクッとねんちょー.lnk"))
 $Link.TargetPath = Join-Path $AppDir "start-windows.bat"
 $Link.WorkingDirectory = $AppDir
 $Link.Save()
-Ok "デスクトップの「年末調整お手本」から起動できます"
+Ok "デスクトップの「サクッとねんちょー」から起動できます"
 
 # 5. Claude Code にログインしているか確認する
 Step "Claude Code のログインを確認しています"
@@ -149,4 +152,4 @@ Write-Host "   「Windows セキュリティの重要な警告」が出たら、
 Start-Process -FilePath (Join-Path $AppDir "start-windows.bat") -WorkingDirectory $AppDir
 Write-Host ""
 Write-Host "新しく開いた黒い画面に QR コードが出ます。スマホのカメラで読み取ってください。" -ForegroundColor Green
-Write-Host "次回からは、デスクトップの「年末調整お手本」をダブルクリックするだけで起動できます。" -ForegroundColor Green
+Write-Host "次回からは、デスクトップの「サクッとねんちょー」をダブルクリックするだけで起動できます。" -ForegroundColor Green

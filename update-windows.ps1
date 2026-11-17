@@ -48,4 +48,12 @@ try {
 } finally {
   Remove-Item $Tmp -Recurse -Force -ErrorAction SilentlyContinue
 }
+
+# アプリの名前を「サクッとねんちょー」に変えたので、デスクトップのショートカットの名前も変える
+try {
+  $Desktop = [Environment]::GetFolderPath("Desktop")
+  $Old = Join-Path $Desktop "年末調整お手本.lnk"
+  $New = Join-Path $Desktop "サクッとねんちょー.lnk"
+  if ((Test-Path $Old) -and -not (Test-Path $New)) { Rename-Item $Old "サクッとねんちょー.lnk" }
+} catch { }
 exit 0

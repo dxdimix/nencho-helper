@@ -2,8 +2,10 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "年末調整 記入お手本",
-  description: "控除証明書の読み取り結果から、保険料控除申告書の記入例を表示します",
+  title: "サクッとねんちょー",
+  applicationName: "サクッとねんちょー",
+  appleWebApp: { title: "サクッとねんちょー", capable: true },
+  description: "撮って、答えて、書き写すだけ。年末調整の申告書のお手本を作ります。",
   robots: { index: false, follow: false },
 };
 
