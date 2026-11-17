@@ -10,6 +10,7 @@ import { AdminPanel, SetPassword, useInviteLanding } from "@/components/Invite";
 import { ManualEntry } from "@/components/ManualEntry";
 import { NenchoGuide } from "@/components/NenchoGuide";
 import { Guide } from "@/components/Guide";
+import { HowTo } from "@/components/HowTo";
 import { HousingGuide } from "@/components/HousingGuide";
 import { Questionnaire } from "@/components/Questionnaire";
 import { ReviewStep, type Timing } from "@/components/ReviewStep";
@@ -74,12 +75,12 @@ export default function Home() {
   const [token, setToken] = useState("");
   const [version, setVersion] = useState("");
   // 最初の画面（welcome）、手順の画面（app）、ねんちょーガイド（guide）
-  const [screen, setScreen] = useState<"welcome" | "app" | "guide" | "admin">("welcome");
+  const [screen, setScreen] = useState<"welcome" | "app" | "guide" | "admin" | "howto">("welcome");
   // 自宅PCで開いていて、招待の管理ができるか
   const [adminAvailable, setAdminAvailable] = useState(false);
   // 招待リンクで開かれたか
   const [invite, clearInvite] = useInviteLanding();
-  const [guideFrom, setGuideFrom] = useState<"welcome" | "app">("welcome");
+  const [guideFrom, setGuideFrom] = useState<"welcome" | "app" | "howto">("welcome");
   const [step, setStep] = useState<Step>("questions");
   const [visited, setVisited] = useState<Step[]>(["questions"]);
 
@@ -265,7 +266,7 @@ export default function Home() {
       : null;
 
   function openGuide() {
-    setGuideFrom(screen === "guide" ? guideFrom : screen === "app" ? "app" : "welcome");
+    setGuideFrom(screen === "guide" ? guideFrom : screen === "app" ? "app" : screen === "howto" ? "howto" : "welcome");
     setScreen("guide");
     window.scrollTo({ top: 0 });
   }
@@ -321,6 +322,17 @@ export default function Home() {
 
       {!invite && screen === "admin" && <AdminPanel token={token} onClose={() => setScreen("welcome")} />}
 
+      {!invite && screen === "howto" && (
+        <HowTo
+          onClose={() => setScreen("welcome")}
+          onStart={() => {
+            setScreen("app");
+            window.scrollTo({ top: 0 });
+          }}
+          onGuide={openGuide}
+        />
+      )}
+
       {!invite && screen === "guide" && (
         <NenchoGuide
           mine={mine}
@@ -365,9 +377,15 @@ export default function Home() {
           <button onClick={() => setScreen("app")} className="w-full rounded-full bg-blue-600 px-4 py-4 text-lg font-bold text-white">
             はじめる
           </button>
-          <button onClick={openGuide} className="flex w-full items-center justify-center gap-2 rounded-full border-2 border-green-600 bg-white px-4 py-3 font-bold text-green-700">
-            <Book className="h-6 w-6" />
-            はじめての方へ：ねんちょーガイド
+          <button
+            onClick={() => {
+              setScreen("howto");
+              window.scrollTo({ top: 0 });
+            }}
+            className="flex w-full items-center justify-center gap-2 rounded-full border-2 border-blue-600 bg-white px-4 py-3 font-bold text-blue-700"
+          >
+            <Checklist className="h-6 w-6" />
+            はじめての方へ：使い方を見る
           </button>
           <p className="text-center text-xs text-gray-500">入力した内容や写真は保存しません。画面を閉じると消えます。</p>
           {mode === "local" && adminAvailable && (
