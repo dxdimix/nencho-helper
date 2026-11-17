@@ -79,6 +79,7 @@ export async function cloudRead(images: { type: string; data: string }[], onWait
   const c = cloud();
   if (!c) throw new Error("この画面は、外出先から使う設定になっていません。");
   const { data: row, error } = await c.from("read_jobs").insert({ images }).select("id").single();
+  if (error?.code === "42501") throw new Error("このアカウントでは写真で登録できません（使えるアカウントが限定されています）。");
   if (error || !row) throw new Error(`写真を送れませんでした（${error?.message ?? "不明"}）。`);
   const id = row.id as string;
   try {

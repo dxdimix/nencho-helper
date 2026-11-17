@@ -52,6 +52,7 @@ DIMY と同じ仕組みです。スマホの画面（GitHub Pages 版）→ Supa
 1. https://supabase.com/dashboard で「New project」を押し、プロジェクトを作ります（名前は `nencho` など、Region は Tokyo）。
 2. 左のメニューの「SQL Editor」を開き、このリポジトリの `supabase/migrations/20261117000000_read_jobs.sql` の中身を貼り付けて「Run」を押します。
 3. 「Authentication」→「Users」→「Add user」→「Create new user」で、メールアドレスとパスワードを入れ、「Auto Confirm User」にチェックを入れて作ります。奥さんなども使う場合は、同じように追加します。
+   - プロジェクトに以前のシステムのアカウントが残っている場合は、`supabase/migrations/20261117010000_read_jobs_allowlist.sql` のメールアドレスを書き換えて SQL Editor で実行すると、使えるアカウントを限定できます。
 4. 「Authentication」→「Sign In / Providers」で「Allow new users to sign up」をオフにします（他人が登録できないようにするため）。
 5. 「Project Settings」→「Data API」で **Project URL**、「API Keys」で **Publishable key**（`sb_publishable_`）と **Secret key**（`sb_secret_`）を控えます。
 
