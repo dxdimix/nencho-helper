@@ -30,7 +30,17 @@ export type ChecklistItem = {
 };
 
 /** 撮り忘れ・読み取り忘れがないかの問いかけ */
-export function buildChecklist(d: ReadResult): ChecklistItem[] {
+/**
+ * 撮り忘れ・読み取り忘れがないかの問いかけ。
+ * selected（アンケートで「あてはまる」と答えた書類）を渡すと、その書類だけを確認する。
+ * 前の会社の源泉徴収票は撮影するものではないので、selected があるときは問いかけない。
+ */
+export function buildChecklist(d: ReadResult, selected?: string[]): ChecklistItem[] {
+  const all = allChecklist(d);
+  return selected ? all.filter((c) => selected.includes(c.id) && c.id !== "previousJob") : all;
+}
+
+function allChecklist(d: ReadResult): ChecklistItem[] {
   const has = (pred: boolean) => pred;
   return [
     {

@@ -73,6 +73,9 @@ describe("確認ステップ", () => {
     const h = ReadResult.parse({ housing: [{ docKind: "控除申告書", yearEndBalance: null, confidence: "中" }, { docKind: "残高証明書", yearEndBalance: 100, confidence: "中" }] });
     expect(lowConfidence(h).map((x) => x.amount)).toEqual([100]);
   });
+  it("アンケートで選んだ書類だけを問いかける", () => {
+    expect(buildChecklist(d, ["life", "housing", "previousJob"]).map((c) => c.id)).toEqual(["life", "housing"]);
+  });
   it("撮り忘れの問いかけ：読み取った種類は済みになる", () => {
     const c = buildChecklist(d);
     expect(c.find((x) => x.id === "life")?.done).toBe(true);

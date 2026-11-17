@@ -5,7 +5,7 @@ import { buildChecklist, fillBlank, findBlanks, lowConfidence, OTHER_DOC_ADVICE,
 import type { ReadResult } from "@/lib/schema";
 
 // お手本を出す前の確認ステップ。
-// 空欄の補足、自信がない金額の見直し、撮り忘れの確認、年末調整の時期の確認をしてから、お手本を表示する。
+// 書かない書類の案内、空欄の補足、自信がない金額の見直し、撮り忘れの確認をしてから、お手本を表示する。
 
 export type Timing = "12月" | "11月以前" | "分からない";
 
@@ -26,15 +26,14 @@ function Card({ step, title, children, done }: { step: number; title: string; ch
 export function ReviewStep({
   data,
   onChange,
-  timing,
-  onTiming,
+  selected,
   onTakePhoto,
   onDone,
 }: {
   data: ReadResult;
   onChange: (d: ReadResult) => void;
-  timing: Timing | null;
-  onTiming: (t: Timing) => void;
+  /** アンケートで「あてはまる」と答えた書類 */
+  selected: string[];
   onTakePhoto: () => void;
   onDone: () => void;
 }) {
@@ -42,10 +41,10 @@ export function ReviewStep({
   const [checked, setChecked] = useState<Record<string, boolean>>({});
   const blanks = findBlanks(data);
   const unsure = lowConfidence(data);
-  const checklist = buildChecklist(data);
+  const checklist = buildChecklist(data, selected);
   const pending = checklist.filter((c) => !c.done && !answers[c.id]);
   const unsureLeft = unsure.filter((u) => !checked[`${u.section}-${u.index}`]);
-  const ready = pending.length === 0 && unsureLeft.length === 0 && timing !== null;
+  const ready = pending.length === 0 && unsureLeft.length === 0;
 
   const counts = [
     ["生命保険など", data.life.length],
@@ -146,8 +145,9 @@ export function ReviewStep({
         </Card>
       )}
 
+      {checklist.length > 0 && (
       <Card step={++step} title="撮り忘れはありませんか？" done={pending.length === 0}>
-        <p className="mb-2 text-sm">年末調整でよく使う書類です。持っているのにまだ撮影していないものがないか、1つずつ確認してください。</p>
+        <p className="mb-2 text-sm">アンケートで「あてはまる」と答えた書類です。まだ読み取れていないものは、撮影するか「持っていない」を選んでください。</p>
         <div className="space-y-2">
           {checklist.map((c) => (
             <div key={c.id} className={`rounded border p-2 text-sm ${c.done || answers[c.id] === "ない" ? "border-green-400 bg-green-50" : "border-gray-300"}`}>
@@ -164,7 +164,7 @@ export function ReviewStep({
                     onClick={() => setAnswers({ ...answers, [c.id]: "ない" })}
                     className={`rounded px-2 py-2 ${answers[c.id] === "ない" ? "bg-green-600 text-white" : "border border-gray-400"}`}
                   >
-                    持っていない
+                    手元にない・不要だった
                   </button>
                   <button onClick={onTakePhoto} className="rounded border border-blue-600 px-2 py-2 text-blue-700">
                     持っている → 撮影する
@@ -175,20 +175,7 @@ export function ReviewStep({
           ))}
         </div>
       </Card>
-
-      <Card step={++step} title="勤務先の年末調整はいつですか？" done={timing !== null}>
-        <p className="mb-2 text-sm">
-          ふつうは12月です。11月中に年末調整をする会社では、子どもなどの扶養の基準が少し変わります。会社からの案内（申告書の提出期限など）で確認してください。
-        </p>
-        <div className="grid grid-cols-3 gap-2 text-sm">
-          {(["12月", "11月以前", "分からない"] as const).map((t) => (
-            <button key={t} onClick={() => onTiming(t)} className={`rounded px-2 py-2 ${timing === t ? "bg-green-600 text-white" : "border border-gray-400"}`}>
-              {t}
-            </button>
-          ))}
-        </div>
-        {timing === "分からない" && <p className="mt-2 text-xs text-gray-600">12月として計算します。11月中に年末調整をすると分かったら、ここで選び直してください。</p>}
-      </Card>
+      )}
 
       <button
         onClick={onDone}
