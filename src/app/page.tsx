@@ -300,12 +300,11 @@ export default function Home() {
   return (
     <main className="mx-auto max-w-5xl space-y-5 p-4 text-gray-900">
       <header className="flex items-center justify-between">
-        <h1 className="leading-tight">
-          <span className="block text-lg font-bold text-blue-700">サクッとねんちょー</span>
-          <span className="block text-[11px] text-gray-500">撮って、答えて、書き写すだけ</span>
+        <h1 className={screen === "welcome" ? "sr-only" : ""}>
+          <Logo className="h-11 w-auto" />
         </h1>
         {screen !== "guide" && (
-          <button onClick={openGuide} className="flex items-center gap-1 rounded-full border border-green-600 bg-white px-3 py-1 text-sm text-green-700">
+          <button onClick={openGuide} className="ml-auto flex shrink-0 items-center gap-1 rounded-full border border-green-600 bg-white px-3 py-1 text-sm text-green-700">
             <Book className="h-5 w-5" />
             ねんちょーガイド
           </button>
@@ -328,6 +327,7 @@ export default function Home() {
 
       {screen === "welcome" && (
         <div className="space-y-5">
+          <Logo className="mx-auto w-full max-w-md" />
           <div className="space-y-3 rounded-2xl bg-white p-5 text-center shadow-sm">
             <HeroFlow className="mx-auto w-full max-w-sm" />
             <p className="text-xl font-bold leading-snug">
@@ -718,5 +718,23 @@ function Under23Box({ family, incomeLimit }: { family: Family; incomeLimit: numb
         <p className="mt-2">氏名・個人番号・生年月日（平成16年1月2日以後生まれ）・続柄・本年中の合計所得金額の見積額を書きます。アンケートで家族の生年月日を入力すると、書く内容をここに表示します。</p>
       )}
     </div>
+  );
+}
+
+// タイトルロゴ（public/brand/logo.webp、読み込めない環境では PNG、それも無理なら文字で表示）
+function Logo({ className }: { className?: string }) {
+  const [failed, setFailed] = useState(false);
+  if (failed)
+    return (
+      <span className="leading-tight">
+        <span className="block text-lg font-bold text-pink-600">サクッとねんちょー</span>
+        <span className="block text-[11px] text-gray-500">撮って、答えて、書き写すだけ</span>
+      </span>
+    );
+  return (
+    <picture>
+      <source srcSet="brand/logo.webp" type="image/webp" />
+      <img src="brand/logo.png" alt="サクッとねんちょー　撮って、答えて、書き写すだけ" className={className} width={1200} height={295} onError={() => setFailed(true)} />
+    </picture>
   );
 }

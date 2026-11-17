@@ -11,6 +11,10 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "撮って、答えて、書き写すだけ。年末調整の申告書のお手本を作ります。",
     display: "standalone",
     background_color: "#f9fafb",
-    theme_color: "#2563eb",
+    theme_color: "#7c5ca6",
+    icons: [
+      { src: "brand/icon-192.png", sizes: "192x192", type: "image/png" },
+      { src: "brand/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
   };
 }
