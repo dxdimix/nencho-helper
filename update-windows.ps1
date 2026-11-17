@@ -1,5 +1,5 @@
 ﻿# 起動のたびに GitHub の最新版を確認し、新しければ自動で更新する（start-windows.bat から呼ばれる）。
-# 合言葉（.local-token）、Claude Code の場所（.claude-path）、部品（node_modules）は残す。
+# 合言葉（.local-token）、Claude Code の場所（.claude-path）、設定（.env.local）、部品（node_modules）は残す。
 $ErrorActionPreference = "Stop"
 $App = $PSScriptRoot
 $Repo = "dxdimix/nencho-helper"
@@ -29,7 +29,7 @@ try {
   $lock = Join-Path $App "package-lock.json"
   $oldLock = if (Test-Path $lock) { (Get-FileHash $lock).Hash } else { "" }
 
-  $keep = @("node_modules", ".local-token", ".claude-path", ".version")
+  $keep = @("node_modules", ".local-token", ".claude-path", ".version", ".env.local")
   Get-ChildItem $App -Force | Where-Object { $keep -notcontains $_.Name } | Remove-Item -Recurse -Force
   Get-ChildItem $Src.FullName -Force | Copy-Item -Destination $App -Recurse -Force
 

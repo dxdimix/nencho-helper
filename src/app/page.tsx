@@ -16,6 +16,7 @@ import { calculate } from "@/lib/calc";
 import { readCount, requiredDocs, type DocId } from "@/lib/docs";
 import { estimateSaving } from "@/lib/estimate";
 import { calcHousing, housingInputFrom } from "@/lib/housing";
+import { cloudConfigured, cloudRead, signIn, signOut, useCloud } from "@/lib/cloud";
 import { registeredItems, removeItem } from "@/lib/review";
 import { emptySelf, hasUnder23Dependent, under23DependentFor, type Family } from "@/lib/family";
 import { mergeResults, parsePasted, ReadResult } from "@/lib/schema";
@@ -25,7 +26,8 @@ import { mergeResults, parsePasted, ReadResult } from "@/lib/schema";
 // 個人情報の扱い: アンケートの答え・写真・読み取り結果は画面の状態（メモリ）にだけ持つ。
 // localStorage などには保存しない。写真は自宅PCのサーバー（同じ Wi-Fi 内）にだけ送る。
 
-type Mode = "checking" | "local" | "paste" | "badToken";
+// local: 自宅PCから開いた / cloud: GitHub Pages 版で、Supabase 経由で自宅PCに読み取らせる / paste: 手入力だけ
+type Mode = "checking" | "local" | "cloud" | "paste" | "badToken";
 type Step = "questions" | "photos" | "review" | "result";
 
 const STEPS: { id: Step; label: string }[] = [
@@ -96,6 +98,9 @@ export default function Home() {
   const [view, setView] = useState<"image" | "table">("image");
   // ② で「手で入力」を開いているか
   const [manualOpen, setManualOpen] = useState(false);
+  // 外出先モード（Supabase 経由）のログインと、自宅PCが動いているか
+  const { session, ready: cloudReady, pcOnline } = useCloud(mode === "cloud");
+  const canPhoto = mode === "local" || (mode === "cloud" && !!session && pcOnline === true);
   const [under23, setUnder23] = useState(false);
   // 勤務先が11月30日以前に年末調整をするなら、23歳未満の扶養親族の所得の基準を58万円に読み替える
   const under23IncomeLimit = timing === "11月以前" ? 580_000 : 620_000;
@@ -111,10 +116,10 @@ export default function Home() {
     setToken(t);
     fetch("api/health", { headers: { "x-local-token": t } })
       .then(async (r) => {
-        setMode(r.ok ? "local" : r.status === 401 ? "badToken" : "paste");
+        setMode(r.ok ? "local" : r.status === 401 ? "badToken" : cloudConfigured ? "cloud" : "paste");
         if (r.ok) setVersion(((await r.json()) as { version?: string }).version ?? "");
       })
-      .catch(() => setMode("paste"));
+      .catch(() => setMode(cloudConfigured ? "cloud" : "paste"));
   }, []);
 
   useEffect(() => {
@@ -154,11 +159,31 @@ export default function Home() {
   // 1回に送る枚数（サーバーの MAX_IMAGES と合わせる）
   const BATCH = 6;
 
+  // 写真を読み取ってもらい、Claude Code の回答を受け取る（自宅PCに直接、または Supabase 経由）
+  async function readBatch(images: { type: string; data: string }[]): Promise<string> {
+    if (mode === "cloud") return cloudRead(images);
+    let r: Response;
+    try {
+      r = await fetch("api/read", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-local-token": token },
+        body: JSON.stringify({ images }),
+      });
+    } catch {
+      throw new Error("PCにつながりませんでした。PCでアプリが起動しているか、同じ Wi-Fi（または Tailscale）につながっているかを確認してください。");
+    }
+    const body = await r.json();
+    if (!r.ok) throw new Error(body.error ?? "読み取りに失敗しました。");
+    return body.text;
+  }
+
   async function sendPhotos(files: FileList | null) {
     if (!files || files.length === 0) return;
     const all = Array.from(files);
+    // Supabase 経由は、1回に送る量を小さくする
+    const size = mode === "cloud" ? 3 : BATCH;
     const batches: File[][] = [];
-    for (let i = 0; i < all.length; i += BATCH) batches.push(all.slice(i, i + BATCH));
+    for (let i = 0; i < all.length; i += size) batches.push(all.slice(i, i + size));
     setError("");
     setReading(true);
     setProgress({ done: 0, total: all.length });
@@ -166,22 +191,13 @@ export default function Home() {
     try {
       for (const batch of batches) {
         const images = await Promise.all(batch.map(shrink));
-        const r = await fetch("api/read", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-local-token": token },
-          body: JSON.stringify({ images }),
-        });
-        const body = await r.json();
-        if (!r.ok || !addResult(body.text)) {
-          if (!r.ok) setError(body.error ?? "読み取りに失敗しました。");
-          if (done > 0) setError((e) => `${e}（${done} 枚目までは読み取り済みです。残りの写真を選び直してください）`);
-          return;
-        }
+        if (!addResult(await readBatch(images))) return;
         done += batch.length;
         setProgress({ done, total: all.length });
       }
-    } catch {
-      setError("PCにつながりませんでした。PCでアプリが起動しているか、同じ Wi-Fi（または Tailscale）につながっているかを確認してください。");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "読み取りに失敗しました。");
+      if (done > 0) setError((m) => `${m}（${done} 枚目までは登録済みです。残りの写真を選び直してください）`);
     } finally {
       setReading(false);
       if (cameraRef.current) cameraRef.current.value = "";
@@ -412,7 +428,7 @@ export default function Home() {
                   setManualOpen(false);
                   cameraRef.current?.click();
                 }}
-                disabled={mode !== "local" || reading}
+                disabled={!canPhoto || reading}
                 className="flex flex-col items-center rounded-2xl border-2 border-blue-600 bg-blue-600 p-3 font-bold text-white disabled:border-gray-200 disabled:bg-gray-100 disabled:text-gray-400"
               >
                 <Camera className="h-14 w-14 rounded-xl bg-white" />
@@ -429,11 +445,22 @@ export default function Home() {
                 <span className="text-xs font-normal">ハガキを見ながら入力</span>
               </button>
             </div>
-            {mode === "local" ? (
+            {canPhoto && (
               <button onClick={() => libraryRef.current?.click()} disabled={reading} className="w-full text-sm text-blue-700 underline disabled:text-gray-400">
                 保存済みの写真から選ぶ（まとめて選べます）
               </button>
-            ) : (
+            )}
+            {mode === "cloud" && cloudReady && !session && <LoginBox />}
+            {mode === "cloud" && session && (
+              <p className="flex items-center justify-center gap-2 text-xs text-gray-600">
+                <span className={`inline-block h-2.5 w-2.5 rounded-full ${pcOnline ? "bg-green-500" : pcOnline === false ? "bg-gray-400" : "bg-yellow-400"}`} />
+                {pcOnline ? "自宅PC：オンライン（写真で登録できます）" : pcOnline === false ? "自宅PC：オフライン（PCでアプリを起動すると写真で登録できます）" : "自宅PCの状態を確認しています…"}
+                <button onClick={() => signOut()} className="ml-2 underline">
+                  ログアウト
+                </button>
+              </p>
+            )}
+            {mode === "paste" && (
               <p className="text-center text-xs text-gray-600">
                 「写真で登録」は、自宅PCで開いたときに使えます。
                 <InfoTip>自宅のPCでアプリを起動して、PCの画面に出るQRコードからこのページを開くと、写真を撮るだけで自動で読み取れます。</InfoTip>
@@ -631,7 +658,7 @@ export default function Home() {
       <Glossary />
 
       <footer className="pt-4 text-center text-[10px] text-gray-400">
-        {mode === "local" ? `自宅PCモード${version ? `・版 ${version}` : ""}` : mode === "paste" ? "手入力モード" : ""}
+        {mode === "local" ? `自宅PCモード${version ? `・版 ${version}` : ""}` : mode === "cloud" ? "外出先モード" : mode === "paste" ? "手入力モード" : ""}
       </footer>
     </main>
   );
@@ -675,5 +702,35 @@ function Logo({ className }: { className?: string }) {
       <source srcSet="brand/logo.webp" type="image/webp" />
       <img src="brand/logo.png" alt="サクッとねんちょー　撮って、答えて、書き写すだけ" className={className} width={1200} height={295} onError={() => setFailed(true)} />
     </picture>
+  );
+}
+
+// 外出先モードのログイン（Supabase に登録した本人だけが使える）
+function LoginBox() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  return (
+    <form
+      className="space-y-2 rounded-2xl border-2 border-gray-200 bg-white p-3 text-sm"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        setBusy(true);
+        setError((await signIn(email, password)) ?? "");
+        setBusy(false);
+      }}
+    >
+      <p className="font-bold">
+        写真で登録するには、ログインしてください
+        <InfoTip>写真を自宅PCに届けるための仕組み（Supabase）に登録した、メールアドレスとパスワードです。ログインした本人だけが使えます。</InfoTip>
+      </p>
+      <input type="email" autoComplete="username" placeholder="メールアドレス" className="w-full rounded-xl border-2 border-gray-300 p-3" value={email} onChange={(e) => setEmail(e.target.value)} />
+      <input type="password" autoComplete="current-password" placeholder="パスワード" className="w-full rounded-xl border-2 border-gray-300 p-3" value={password} onChange={(e) => setPassword(e.target.value)} />
+      <button disabled={busy || !email || !password} className="w-full rounded-full bg-blue-600 px-4 py-3 font-bold text-white disabled:bg-gray-300">
+        ログイン
+      </button>
+      {error && <p className="text-red-700">{error}</p>}
+    </form>
   );
 }

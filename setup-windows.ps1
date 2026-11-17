@@ -86,7 +86,7 @@ if (Test-Path $TsExe) {
   }
 }
 
-# 3. アプリ本体（最新版をダウンロード。合言葉ファイルは引き継ぐ）
+# 3. アプリ本体（最新版をダウンロード。合言葉と設定ファイルは引き継ぐ）
 Step "アプリをダウンロードしています"
 $Tmp = Join-Path $env:TEMP ("nencho-setup-" + [guid]::NewGuid())
 New-Item -ItemType Directory -Path $Tmp | Out-Null
@@ -96,12 +96,15 @@ Expand-Archive -Path $Zip -DestinationPath $Tmp
 $Src = Join-Path $Tmp "nencho-helper-main"
 $Token = Join-Path $AppDir ".local-token"
 $SavedToken = if (Test-Path $Token) { Get-Content $Token -Raw } else { $null }
+$EnvFile = Join-Path $AppDir ".env.local"
+$SavedEnv = if (Test-Path $EnvFile) { Get-Content $EnvFile -Raw } else { $null }
 if (Test-Path $AppDir) {
   try { Remove-Item $AppDir -Recurse -Force }
   catch { Fail "アプリが起動中のため更新できません。アプリの黒い画面を閉じてから、もう一度この1行を実行してください。" }
 }
 Move-Item $Src $AppDir
 if ($SavedToken) { Set-Content -Path $Token -Value $SavedToken.Trim() -NoNewline }
+if ($SavedEnv) { [IO.File]::WriteAllText($EnvFile, $SavedEnv) }
 # 起動時の自動更新が、今入れた版を最新と判断できるよう記録する
 try {
   $sha = (Invoke-RestMethod -Uri "https://api.github.com/repos/dxdimix/nencho-helper/commits/main" -Headers @{ "User-Agent" = "nencho-helper" } -TimeoutSec 15).sha
@@ -119,6 +122,14 @@ Ok "準備できました"
 
 # アプリが Claude Code を確実に見つけられるよう、場所を記録しておく。
 [IO.File]::WriteAllText((Join-Path $AppDir ".claude-path"), (Claude-Path))
+
+# 3-2. 外出先から使うための設定（任意）。.env.local がまだなければ作り、メモ帳で開く
+if (-not (Test-Path $EnvFile)) {
+  Copy-Item (Join-Path $AppDir ".env.example") $EnvFile
+  Step "外出先から使うための設定（使わない場合は、何も書かずにメモ帳を閉じてください）"
+  Write-Host "   Supabase の URL と secret キーを貼り付けて保存し、メモ帳を閉じてください。" -ForegroundColor Yellow
+  Start-Process notepad.exe -ArgumentList $EnvFile -Wait
+}
 
 # 4. デスクトップにショートカットを作る
 Step "デスクトップにショートカットを作っています"

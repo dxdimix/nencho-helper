@@ -1,13 +1,10 @@
 // 自宅PCで動かすサーバー。
-// - out/ に書き出したアプリ画面を、同じ Wi-Fi のスマホに配信する。
-// - スマホから届いた写真を Claude Code（claude -p）に読み取らせ、結果を返す。
+// - out/ に書き出したアプリ画面を、同じ Wi-Fi（または Tailscale）のスマホに配信する。
+// - スマホから届いた写真を Claude Code（claude -p）に読み取らせ、結果を返す（読み取りは reader.mjs）。
+// - .env.local に Supabase の設定があれば、外出先の画面（GitHub Pages 版）からの写真も読み取る（cloud.mjs）。
 //
-// 個人情報の扱い:
-// - 写真は Claude Code に渡すため一時フォルダに保存し、読み取りが終わったらすぐ削除する。
-// - Claude Code は会話の記録を残さない設定（--no-session-persistence）で動かす。
-// - 写真の中身や読み取り結果はログに出さない。
+// 個人情報の扱いは reader.mjs と cloud.mjs の説明を参照。写真の中身や読み取り結果はログに出さない。
 
-import { spawn } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import http from "node:http";
@@ -15,33 +12,26 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import qrcode from "qrcode-terminal";
-import { buildFilePrompt } from "../src/lib/prompt.mjs";
+import { startCloud } from "./cloud.mjs";
+import { createReader, findClaude, MAX_IMAGES } from "./reader.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.join(ROOT, "out");
 const PORT = Number(process.env.PORT || 5173);
-// Claude Code の場所を探す。デスクトップのアイコンから起動すると PATH が古いことがあるため、
-// セットアップ時に記録した場所（.claude-path）とよくある場所を順に確認する。
-function findClaude() {
-  if (process.env.CLAUDE_BIN) return process.env.CLAUDE_BIN;
-  const candidates = [];
-  const recorded = path.join(ROOT, ".claude-path");
-  if (fs.existsSync(recorded)) candidates.push(fs.readFileSync(recorded, "utf8").replace(/^\uFEFF/, "").trim());
-  if (process.platform === "win32") {
-    const home = process.env.USERPROFILE || os.homedir();
-    candidates.push(path.join(home, ".local", "bin", "claude.exe"));
-    if (process.env.APPDATA) candidates.push(path.join(process.env.APPDATA, "npm", "claude.cmd"));
+// .env.local（Supabase の設定など）を読み込む。すでに環境変数にあるものは上書きしない。
+const ENV_FILE = path.join(ROOT, ".env.local");
+if (fs.existsSync(ENV_FILE)) {
+  for (const line of fs.readFileSync(ENV_FILE, "utf8").replace(/^\uFEFF/, "").split(/\r?\n/)) {
+    const m = /^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/.exec(line);
+    if (m && !line.trim().startsWith("#") && process.env[m[1]] === undefined) process.env[m[1]] = m[2].replace(/^["']|["']$/g, "");
   }
-  return candidates.find((c) => c && fs.existsSync(c)) || "claude";
 }
-const CLAUDE_BIN = findClaude();
+const CLAUDE_BIN = findClaude(ROOT);
 // 自動更新で記録した版（GitHub のコミット番号の先頭7文字）。画面に表示して、更新できたかを確かめられるようにする。
 const VERSION_FILE = path.join(ROOT, ".version");
 const VERSION = fs.existsSync(VERSION_FILE) ? fs.readFileSync(VERSION_FILE, "utf8").trim().slice(0, 7) : "";
 const MODEL = process.env.CLAUDE_MODEL || "sonnet";
-const TIMEOUT_MS = 4 * 60 * 1000;
 const MAX_BODY = 40 * 1024 * 1024;
-const MAX_IMAGES = 6;
 
 if (!fs.existsSync(path.join(OUT, "index.html"))) {
   console.error("アプリ画面がありません。先に npm run build を実行してください。");
@@ -72,7 +62,6 @@ const TYPES = {
   ".webmanifest": "application/manifest+json",
 };
 
-const EXT = { "image/jpeg": ".jpg", "image/png": ".png", "image/webp": ".webp" };
 
 function sendJson(res, status, body) {
   res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
@@ -106,87 +95,17 @@ function readBody(req) {
   });
 }
 
-function runClaude(dir, files) {
-  return new Promise((resolve, reject) => {
-    const args = [
-      "-p",
-      "--output-format", "text",
-      "--model", MODEL,
-      // 使えるのはファイルを読む機能だけ。--allowedTools を付けないことで、
-      // 読めるのは作業フォルダ（写真だけを入れた一時フォルダ）の中に限られる。
-      "--tools", "Read",
-      "--no-session-persistence",
-      "--strict-mcp-config",
-    ];
-    // Windows の .cmd や、場所が分からない "claude" はコマンドプロンプト経由で起動する。
-    // そのときは空白を含む場所に備えて引用符で囲む。.exe は直接起動する。
-    const useShell = process.platform === "win32" && !/\.exe$/i.test(CLAUDE_BIN);
-    const command = useShell && CLAUDE_BIN.includes(" ") ? `"${CLAUDE_BIN}"` : CLAUDE_BIN;
-    const child = spawn(command, args, {
-      cwd: dir,
-      shell: useShell,
-      windowsHide: true,
-      stdio: ["pipe", "pipe", "pipe"],
-    });
-    let stdout = "";
-    let stderr = "";
-    const timer = setTimeout(() => {
-      child.kill();
-      reject(new Error("時間内に読み取りが終わりませんでした。もう一度試してください。"));
-    }, TIMEOUT_MS);
-    child.stdout.on("data", (d) => (stdout += d));
-    child.stderr.on("data", (d) => (stderr += d));
-    child.on("error", (e) => {
-      clearTimeout(timer);
-      reject(
-        new Error(
-          e.code === "ENOENT"
-            ? "このPCで Claude Code（claude コマンド）が見つかりません。"
-            : `Claude Code を起動できませんでした（${e.code || e.message}）。`,
-        ),
-      );
-    });
-    child.on("close", (code) => {
-      clearTimeout(timer);
-      if (code === 0) return resolve(stdout);
-      // 標準エラーにはログイン切れなどの理由が出る。写真の内容は含まれない。
-      console.error(`  Claude Code がエラーで終了しました（終了コード ${code}）: ${stderr.trim().slice(0, 300)}`);
-      reject(new Error("Claude Code がエラーで終了しました。PCの画面に表示された理由を確認してください。"));
-    });
-    child.stdin.end(buildFilePrompt(files));
-  });
-}
-
-let busy = false;
+const reader = createReader({ bin: CLAUDE_BIN, model: MODEL });
 
 async function handleRead(req, res) {
-  if (busy) return sendJson(res, 429, { error: "前の写真を読み取り中です。終わってから送ってください。" });
-  busy = true;
-  let dir = "";
-  const started = Date.now();
+  if (reader.busy) return sendJson(res, 429, { error: "前の写真を読み取り中です。終わってから送ってください。" });
   try {
     const body = JSON.parse((await readBody(req)).toString("utf8"));
     const images = Array.isArray(body.images) ? body.images.slice(0, MAX_IMAGES) : [];
-    if (images.length === 0) return sendJson(res, 400, { error: "写真が届いていません。" });
-
-    dir = fs.mkdtempSync(path.join(os.tmpdir(), "nencho-"));
-    const files = images.map((img, i) => {
-      const ext = EXT[img.type];
-      if (!ext || typeof img.data !== "string") throw new Error("写真の形式に対応していません。");
-      const name = `photo${i + 1}${ext}`;
-      fs.writeFileSync(path.join(dir, name), Buffer.from(img.data, "base64"));
-      return name;
-    });
-
-    console.log(`写真 ${files.length} 枚を読み取っています…`);
-    const text = await runClaude(dir, files);
-    console.log(`  完了（${Math.round((Date.now() - started) / 1000)} 秒）`);
+    const text = await reader.read(images);
     sendJson(res, 200, { text });
   } catch (e) {
-    sendJson(res, 500, { error: e instanceof Error ? e.message : "読み取りに失敗しました。" });
-  } finally {
-    if (dir) fs.rmSync(dir, { recursive: true, force: true });
-    busy = false;
+    sendJson(res, e instanceof Error && e.message === "写真が届いていません。" ? 400 : 500, { error: e instanceof Error ? e.message : "読み取りに失敗しました。" });
   }
 }
 
@@ -245,6 +164,8 @@ server.listen(PORT, "0.0.0.0", () => {
     }
   }
   console.log(`■ この PC のブラウザで使うアドレス\n  http://localhost:${PORT}/?t=${TOKEN}\n`);
+  const stopCloud = startCloud({ url: process.env.SUPABASE_URL, secretKey: process.env.SUPABASE_SECRET_KEY, reader });
+  if (!stopCloud) console.log("（Supabase の設定がないため、外出先の画面からの写真の読み取りはオフです）");
   console.log("このアプリを使う間は、PC の電源を入れたまま（スリープしない状態）にしてください。");
   console.log("終了するときは、この画面で Ctrl + C を押してください。\n");
 });

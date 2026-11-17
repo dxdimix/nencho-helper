@@ -44,8 +44,39 @@ PC の黒い画面に出る「家でも外出先でも使えるアドレス」�
 3. 手元のハガキを1枚撮影し、お手本の内容（保険会社名・新旧・金額）がハガキと一致するかを確認します。
 4. お手本の「基礎控除申告書」「扶養控除等申告書」の内容が、勤務先から配られた申告書の記載例と合っているかを確認します。
 
+## 外出先から「写真で登録」を使う（Supabase、任意）
+DIMY と同じ仕組みです。スマホの画面（GitHub Pages 版）→ Supabase → 自宅PC の順に写真を届け、自宅PCの Claude Code が読み取ります（追加の料金はかかりません）。
+写真は読み取りが終わるまでの間だけ Supabase に置かれ、読み取り後すぐに消えます（消し忘れも15分で自動で消します）。
+
+### 1. Supabase（最初の1回だけ）
+1. https://supabase.com/dashboard で「New project」を押し、プロジェクトを作ります（名前は `nencho` など、Region は Tokyo）。
+2. 左のメニューの「SQL Editor」を開き、このリポジトリの `supabase/migrations/20261117000000_read_jobs.sql` の中身を貼り付けて「Run」を押します。
+3. 「Authentication」→「Users」→「Add user」→「Create new user」で、メールアドレスとパスワードを入れ、「Auto Confirm User」にチェックを入れて作ります。奥さんなども使う場合は、同じように追加します。
+4. 「Authentication」→「Sign In / Providers」で「Allow new users to sign up」をオフにします（他人が登録できないようにするため）。
+5. 「Project Settings」→「Data API」で **Project URL**、「API Keys」で **Publishable key**（`sb_publishable_`）と **Secret key**（`sb_secret_`）を控えます。
+
+### 2. GitHub（画面に Supabase の場所を教える）
+1. https://github.com/dxdimix/nencho-helper/settings/variables/actions を開きます。
+2. 「New repository variable」で次の2つを追加します（どちらも公開されてよい値です）。
+   - `NEXT_PUBLIC_SUPABASE_URL` = Project URL
+   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` = Publishable key
+3. https://github.com/dxdimix/nencho-helper/actions で「Deploy to GitHub Pages」を開き、「Run workflow」を押して公開し直します。
+
+### 3. 自宅PC
+いつもの1行（セットアップ）をもう一度実行します。途中でメモ帳が開くので、次の2行に値を貼り付けて保存し、メモ帳を閉じます。
+```
+SUPABASE_URL=（Project URL）
+SUPABASE_SECRET_KEY=（Secret key）
+```
+**Secret key は強い権限を持つキーです。この PC の `.env.local` 以外（GitHub など）には書かないでください。**
+起動したときの黒い画面に「Supabase とつながりました」と出れば準備完了です。
+
+### 使い方
+GitHub Pages 版（https://dxdimix.github.io/nencho-helper/）を開き、「②ハガキの登録」でログインすると「写真で登録」が使えます。
+画面に「自宅PC：オンライン」と出ている間（自宅PCでアプリが起動している間）だけ使えます。
+
 ## PCを使わないとき
-https://dxdimix.github.io/nencho-helper/ を開くと、ハガキの内容を手で入力して使えます（写真の読み取りは、自宅PCで開いたときだけ使えます）。
+https://dxdimix.github.io/nencho-helper/ を開くと、ハガキの内容を手で入力して使えます。上の Supabase の設定をすると、ここからも「写真で登録」が使えます。
 
 ## 開発者向け
 - `npm run dev` / `npm run build` / `npm run lint` / `npm test`
