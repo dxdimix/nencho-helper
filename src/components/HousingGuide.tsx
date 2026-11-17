@@ -61,7 +61,7 @@ export function HousingGuide({ items }: { items: HousingItem[] }) {
           <li>税務署から届く「給与所得者の住宅借入金等特別控除申告書」（1年目の確定申告のあと、数年分がまとめて届きます）</li>
           <li>銀行などから届く「住宅取得資金に係る借入金の年末残高等証明書」（最近の借入れでは届かないこともあります）</li>
         </ul>
-        {items.length === 0 && <p className="mt-2 rounded bg-yellow-50 p-2">まだ書類を読み取っていません。「書類の読み取り」タブで2つの書類を撮影するか、下に直接入力してください。</p>}
+        {items.length === 0 && <p className="mt-2 rounded bg-yellow-50 p-2">まだ書類を読み取っていません。「②書類の撮影」で2つの書類を撮影するか、下に直接入力してください。</p>}
       </section>
 
       <section className="space-y-3 rounded border border-gray-300 bg-white p-3">

@@ -14,7 +14,7 @@ export const OTHER_DOC_ADVICE: Record<OtherDoc["docType"], string> = {
   "株・投資信託などの書類": "株や投資信託の書類は、年末調整では使いません。必要な場合は、確定申告で使います。",
   "保険の満期・解約・契約内容の通知":
     "保険のお知らせ（満期・解約・契約内容）は、控除証明書ではありません。同じ保険会社から「生命保険料控除証明書」というハガキが別に届いていないか確認してください。",
-  年金の通知: "年金の通知は、年末調整の保険料控除には使いません。家族の年金収入は「家族と収入」タブの「給与以外の所得」の参考にしてください。",
+  年金の通知: "年金の通知は、年末調整の保険料控除には使いません。家族の年金収入は、アンケートの家族の「給与以外の所得」の参考にしてください。",
   "自動車保険・火災保険などの案内": "自動車保険や、地震保険が付いていない火災保険は、控除の対象外です。申告書には書きません。",
   その他: "年末調整で使う書類ではないようです。分からない場合は、勤務先の担当者に確認してください。",
 };
@@ -147,7 +147,7 @@ export function lowConfidence(d: ReadResult) {
     ...d.earthquake.map((i, index) => ({ section: "earthquake" as const, index, title: `${i.insurer || "（名前なし）"}　${i.policyType}`, amount: i.amount, confidence: i.confidence })),
     ...d.social.map((i, index) => ({ section: "social" as const, index, title: `${i.kind}　${i.payee}`, amount: i.amount, confidence: i.confidence })),
     ...d.smallBiz.map((i, index) => ({ section: "smallBiz" as const, index, title: i.kind, amount: i.amount, confidence: i.confidence })),
-    // 住宅ローンは、年末残高が書かれた書類だけ（申告書は「住宅ローン」タブで値を確認する）
+    // 住宅ローンは、年末残高が書かれた書類だけ（申告書の値は、お手本の住宅ローン控除の欄で確認する）
     ...d.housing.flatMap((i, index) =>
       i.yearEndBalance === null ? [] : [{ section: "housing" as const, index, title: `住宅ローン　${i.lender || i.docKind}`, amount: i.yearEndBalance, confidence: i.confidence }],
     ),
