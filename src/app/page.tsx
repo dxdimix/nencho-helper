@@ -266,6 +266,8 @@ export default function Home() {
       ? { ...estimateSaving(family, insuranceDeduction, housingCredit), note: "保険料控除・住宅ローン控除で所得税が安くなる金額の目安です。会社の社会保険料を給料の約14.7%として計算しています。" }
       : null;
 
+  // 入力を始めているか（最初の画面に戻ったときに「続きから」を出す）
+  const started = visited.length > 1 || timing !== null || data !== null;
   function start() {
     setScreen("app");
     window.scrollTo({ top: 0 });
@@ -398,7 +400,12 @@ export default function Home() {
             </button>
           ) : (
             <button onClick={start} className="w-full rounded-full bg-blue-600 px-4 py-4 text-lg font-bold text-white">
-              はじめる
+              {started ? "続きから始める" : "はじめる"}
+            </button>
+          )}
+          {started && (
+            <button onClick={clearAll} className="w-full text-center text-sm text-red-600 underline">
+              入力した内容を消して、最初からやり直す
             </button>
           )}
           <button
@@ -737,6 +744,18 @@ export default function Home() {
       )}
 
       <Glossary />
+
+      {!invite && screen === "app" && (
+        <button
+          onClick={() => {
+            setScreen("welcome");
+            window.scrollTo({ top: 0 });
+          }}
+          className="w-full rounded-full border border-gray-400 bg-white px-4 py-3 text-sm text-gray-700"
+        >
+          入力を一旦やめて、最初の画面に戻る
+        </button>
+      )}
 
       <footer className="pt-4 text-center text-[10px] text-gray-400">
         {mode === "local" ? `自宅PCモード${version ? `・版 ${version}` : ""}` : mode === "cloud" ? "外出先モード" : mode === "paste" ? "手入力モード" : ""}
