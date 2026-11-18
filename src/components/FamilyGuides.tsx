@@ -55,17 +55,22 @@ export function BasicGuide({ family }: { family: Family }) {
 
       {family.spouse && r.spouse && (
         <Box title="配偶者控除等申告書">
-          {!family.spouse.birth && (
-            <p className="mb-2 rounded bg-yellow-50 p-2 text-sm">配偶者の生年月日が入力されていません。70歳以上（昭和32年1月1日以前生まれ）の場合は控除額が変わるので、「①アンケート」に戻って入力してください。</p>
-          )}
-          <Row label="配偶者の本年中の合計所得金額の見積額" value={`${yen(r.spouse.income)} 円`} />
-          <Row label="区分Ⅱ（判定）" value={r.spouse.kubun2 ?? "該当なし"} />
           {r.spouse.kind ? (
-            <Row label={`${r.spouse.kind}の額`} value={`${yen(r.spouse.amount)} 円`} strong />
+            <>
+              {!family.spouse.birth && (
+                <p className="mb-2 rounded bg-yellow-50 p-2 text-sm">配偶者の生年月日が入力されていません。70歳以上（昭和32年1月1日以前生まれ）の場合は控除額が変わるので、「①アンケート」に戻って入力してください。</p>
+              )}
+              <Row label="配偶者の本年中の合計所得金額の見積額" value={`${yen(r.spouse.income)} 円`} />
+              <Row label="区分Ⅱ（判定）" value={r.spouse.kubun2 ?? "該当なし"} />
+              <Row label={`${r.spouse.kind}の額`} value={`${yen(r.spouse.amount)} 円`} strong />
+              <Note>配偶者の氏名・生年月日・住所（別居の場合）・個人番号は、ご自身で記入してください。</Note>
+            </>
           ) : (
-            <p className="mt-2 rounded bg-yellow-50 p-2 text-sm">{r.spouse.reason}この申告書は書かなくてかまいません。</p>
+            // 控除を受けないときは、書く欄と間違えないよう金額は出さない
+            <p className="rounded bg-gray-50 p-2 text-sm">
+              {r.spouse.reason.replace(/。$/, "")}。<b>配偶者控除等申告書の欄（配偶者の氏名・所得など）と区分Ⅰは、何も書きません。</b>
+            </p>
           )}
-          <Note>配偶者の氏名・生年月日・住所（別居の場合）・個人番号は、ご自身で記入してください。</Note>
         </Box>
       )}
 
