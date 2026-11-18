@@ -2,6 +2,7 @@
 
 import { createClient, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
+import { demoLogin } from "./demo.mjs";
 
 // Supabase を中継して、自宅PCの Claude Code に写真を読み取ってもらう（GitHub Pages 版の画面で使う）。
 // 自宅PC側は local/cloud.mjs。表の定義は supabase/migrations/。
@@ -60,7 +61,7 @@ export function useCloud(enabled: boolean) {
 export async function signIn(email: string, password: string): Promise<string | null> {
   const c = cloud();
   if (!c) return "この画面は、外出先から使う設定になっていません。";
-  const { error } = await c.auth.signInWithPassword({ email, password });
+  const { error } = await c.auth.signInWithPassword(demoLogin(email, password));
   if (!error) return null;
   return /invalid/i.test(error.message) ? "メールアドレスかパスワードが違います。" : `ログインできませんでした（${error.message}）`;
 }

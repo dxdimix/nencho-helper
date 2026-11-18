@@ -176,6 +176,34 @@ export function AdminPanel({ token, onClose }: { token: string; onClose: () => v
       </section>
 
       <section className="space-y-2 rounded-2xl bg-white p-4 shadow-sm">
+        <h2 className="font-bold">デモ用アカウント</h2>
+        <p className="text-sm text-gray-600">
+          ログイン画面でメールアドレスに「0000」、パスワードに「0000」と入れると使えるアカウントです。人に見せるときなどに使います。
+        </p>
+        <p className="text-xs text-red-700">
+          だれでも推測できるため、知っている人はこのPCの Claude Code で写真を読み取れます。同じアカウントを同時に使うと、ほかの人の読み取り結果が見える可能性もあります。使わないときは、下の一覧で「取り消す」を押してください。
+        </p>
+        <button
+          disabled={busy}
+          onClick={async () => {
+            setError("");
+            setBusy(true);
+            try {
+              const r = await call("demo", {});
+              window.alert(r.existing ? "デモ用アカウントを使える状態に戻しました（0000 / 0000）。" : "デモ用アカウントを作りました（0000 / 0000）。");
+              load();
+            } catch (e) {
+              setError((e as Error).message);
+            }
+            setBusy(false);
+          }}
+          className="w-full rounded-full border-2 border-blue-600 bg-white px-4 py-3 font-bold text-blue-700 disabled:opacity-50"
+        >
+          デモ用アカウントを作る（0000 / 0000）
+        </button>
+      </section>
+
+      <section className="space-y-2 rounded-2xl bg-white p-4 shadow-sm">
         <h2 className="font-bold">招待した人</h2>
         {members === null ? (
           <p className="text-sm text-gray-500">読み込んでいます…</p>

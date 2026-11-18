@@ -3,6 +3,7 @@
 // リンクを開いた人は、パスワードを決めて使い始める。すでにアカウントがある人には、パスワードを決め直すリンクを作る。
 
 import { createClient } from "@supabase/supabase-js";
+import { DEMO_EMAIL, DEMO_PASSWORD } from "../src/lib/demo.mjs";
 
 export const DEFAULT_APP_URL = "https://dxdimix.github.io/nencho-helper/";
 
@@ -56,6 +57,23 @@ export function createAdmin({ url, secretKey, appUrl }) {
       const { error: e2 } = await sb.schema("nencho").from("members").upsert({ user_id: userId, email: clean }, { onConflict: "user_id" });
       if (e2) throw new Error(`招待した人を保存できませんでした（${e2.message}）`);
       return { email: clean, existing: !!existing, link: buildInviteLink(appUrl, data.properties.hashed_token, type) };
+    },
+
+    /** デモ用アカウント（ログイン画面で 0000 / 0000）を作る。すでにあればパスワードを元に戻す */
+    async createDemo() {
+      const existing = await findUser(DEMO_EMAIL);
+      let userId = existing?.id;
+      if (existing) {
+        const { error } = await sb.auth.admin.updateUserById(existing.id, { password: DEMO_PASSWORD, email_confirm: true });
+        if (error) throw new Error(`デモ用アカウントを更新できませんでした（${error.message}）`);
+      } else {
+        const { data, error } = await sb.auth.admin.createUser({ email: DEMO_EMAIL, password: DEMO_PASSWORD, email_confirm: true });
+        if (error) throw new Error(`デモ用アカウントを作れませんでした（${error.message}）`);
+        userId = data.user.id;
+      }
+      const { error: e2 } = await sb.schema("nencho").from("members").upsert({ user_id: userId, email: DEMO_EMAIL }, { onConflict: "user_id" });
+      if (e2) throw new Error(`デモ用アカウントを保存できませんでした（${e2.message}）`);
+      return { email: DEMO_EMAIL, existing: !!existing };
     },
 
     /** 招待を取り消す（アカウント自体は消さない。以前のシステムで使っている可能性があるため） */

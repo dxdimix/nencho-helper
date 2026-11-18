@@ -19,6 +19,7 @@ import { readCount, requiredDocs, type DocId } from "@/lib/docs";
 import { estimateSaving } from "@/lib/estimate";
 import { calcHousing, housingInputFrom } from "@/lib/housing";
 import { cloudConfigured, cloudRead, signIn, signOut, useCloud } from "@/lib/cloud";
+import { DEMO_EMAIL } from "@/lib/demo.mjs";
 import { registeredItems, removeItem } from "@/lib/review";
 import { emptySelf, hasUnder23Dependent, under23DependentFor, type Family } from "@/lib/family";
 import { mergeResults, parsePasted, ReadResult } from "@/lib/schema";
@@ -265,6 +266,11 @@ export default function Home() {
       ? { ...estimateSaving(family, insuranceDeduction, housingCredit), note: "保険料控除・住宅ローン控除で所得税が安くなる金額の目安です。会社の社会保険料を給料の約14.7%として計算しています。" }
       : null;
 
+  function start() {
+    setScreen("app");
+    window.scrollTo({ top: 0 });
+  }
+
   function openGuide() {
     setGuideFrom(screen === "guide" ? guideFrom : screen === "app" ? "app" : screen === "howto" ? "howto" : "welcome");
     setScreen("guide");
@@ -374,9 +380,27 @@ export default function Home() {
               </li>
             ))}
           </ol>
-          <button onClick={() => setScreen("app")} className="w-full rounded-full bg-blue-600 px-4 py-4 text-lg font-bold text-white">
-            はじめる
-          </button>
+          {mode === "cloud" && cloudReady && !session && (
+            <LoginBox title="ログインして始める" note="ログインすると、ハガキを写真で登録できます（自宅PCで読み取ります）。" />
+          )}
+          {mode === "cloud" && session && (
+            <p className="flex flex-wrap items-center justify-center gap-x-2 text-sm text-gray-700">
+              <span className={`inline-block h-2.5 w-2.5 rounded-full ${pcOnline ? "bg-green-500" : pcOnline === false ? "bg-gray-400" : "bg-yellow-400"}`} />
+              ログイン中：{session.user.email === DEMO_EMAIL ? "デモ用アカウント" : session.user.email}
+              <button onClick={() => signOut()} className="text-xs underline">
+                ログアウト
+              </button>
+            </p>
+          )}
+          {mode === "cloud" && !cloudReady ? null : mode === "cloud" && !session ? (
+            <button onClick={start} className="w-full text-center text-sm text-gray-600 underline">
+              ログインせずに始める（ハガキは手で入力します）
+            </button>
+          ) : (
+            <button onClick={start} className="w-full rounded-full bg-blue-600 px-4 py-4 text-lg font-bold text-white">
+              はじめる
+            </button>
+          )}
           <button
             onClick={() => {
               setScreen("howto");
@@ -763,7 +787,7 @@ function Logo({ className }: { className?: string }) {
 }
 
 // 外出先モードのログイン（Supabase に登録した本人だけが使える）
-function LoginBox() {
+function LoginBox({ title = "写真で登録するには、ログインしてください", note }: { title?: string; note?: string }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -779,10 +803,11 @@ function LoginBox() {
       }}
     >
       <p className="font-bold">
-        写真で登録するには、ログインしてください
+        {title}
         <InfoTip>招待されたときに決めた、メールアドレスとパスワードです。招待された人だけが使えます。パスワードを忘れたときは、招待した人に新しいリンクを作ってもらってください。</InfoTip>
       </p>
-      <input type="email" autoComplete="username" placeholder="メールアドレス" className="w-full rounded-xl border-2 border-gray-300 p-3" value={email} onChange={(e) => setEmail(e.target.value)} />
+      {note && <p className="text-xs text-gray-600">{note}</p>}
+      <input type="text" inputMode="email" autoCapitalize="none" autoComplete="username" placeholder="メールアドレス" className="w-full rounded-xl border-2 border-gray-300 p-3" value={email} onChange={(e) => setEmail(e.target.value)} />
       <input type="password" autoComplete="current-password" placeholder="パスワード" className="w-full rounded-xl border-2 border-gray-300 p-3" value={password} onChange={(e) => setPassword(e.target.value)} />
       <button disabled={busy || !email || !password} className="w-full rounded-full bg-blue-600 px-4 py-3 font-bold text-white disabled:bg-gray-300">
         ログイン

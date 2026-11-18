@@ -106,6 +106,7 @@ async function handleAdmin(req, res, pathname) {
     if (pathname === "/api/admin/members" && req.method === "GET") return sendJson(res, 200, { members: await admin.members() });
     const body = req.method === "POST" ? JSON.parse((await readBody(req)).toString("utf8") || "{}") : {};
     if (pathname === "/api/admin/invite" && req.method === "POST") return sendJson(res, 200, await admin.invite(body.email));
+    if (pathname === "/api/admin/demo" && req.method === "POST") return sendJson(res, 200, await admin.createDemo());
     if (pathname === "/api/admin/remove" && req.method === "POST") {
       await admin.remove(String(body.userId ?? ""));
       return sendJson(res, 200, { ok: true });
