@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { BasicGuide, DependentsGuide } from "@/components/FamilyGuides";
-import { BasicFormImage, FormImage } from "@/components/FormImage";
+import { BasicFormImage, DependentsFormImage, FormImage } from "@/components/FormImage";
 import { Glossary } from "@/components/Glossary";
 import { Bag, Book, Camera, Checklist, FormPen, Health, HeroFlow, House, Pension, PiggyBank, Postcard, Shield } from "@/components/Illustrations";
 import { InfoTip } from "@/components/InfoTip";
@@ -13,6 +13,7 @@ import { Guide } from "@/components/Guide";
 import { HowTo } from "@/components/HowTo";
 import { HousingGuide } from "@/components/HousingGuide";
 import { ResultDetails } from "@/components/ResultDetails";
+import { submitList, type SubmitList } from "@/lib/submit";
 import { Questionnaire } from "@/components/Questionnaire";
 import { ReviewStep, type Timing } from "@/components/ReviewStep";
 import { calculate } from "@/lib/calc";
@@ -712,7 +713,7 @@ export default function Home() {
                 </label>
                 {effectiveUnder23 && data.life.some((i) => i.category === "一般" && i.system === "新") && <Under23Box family={family} incomeLimit={under23IncomeLimit} />}
                 {view === "image" ? (
-                  <FormImage data={data} calc={calculate(data, { under23: effectiveUnder23 })} under23={effectiveUnder23} />
+                  <FormImage data={data} under23={effectiveUnder23} family={family} incomeLimit={under23IncomeLimit} />
                 ) : (
                   <Guide data={data} calc={calculate(data, { under23: effectiveUnder23 })} />
                 )}
@@ -734,14 +735,16 @@ export default function Home() {
 
           <section id="fuyou" className="scroll-mt-24 space-y-2">
             <h2 className="border-b-2 border-blue-600 pb-1 text-lg font-bold">{showHousing ? 4 : 3}. 扶養控除等申告書（令和9年分）</h2>
+            {view === "image" ? <DependentsFormImage family={family} /> : null}
             <DependentsGuide family={family} />
           </section>
 
           <section className="rounded-lg border border-gray-300 bg-white p-3 text-sm">
             <h2 className="font-bold">出す前のチェック</h2>
-            <ul className="mt-1 list-disc pl-5">
+            {data && <SubmitDocs list={submitList(data, effectiveUnder23)} />}
+            <ul className="mt-2 list-disc pl-5">
               <li>保険会社などのハガキ（控除証明書）は、申告書と一緒に勤務先に出します（裏面や指定の場所に貼り付けます）。</li>
-              <li>氏名・住所・マイナンバーなどは、ご自身で記入してください。</li>
+              <li>お手本の赤い所（氏名・住所・マイナンバーなど）は、ご自身で記入してください。</li>
               <li>お手本は、入力した見込みの金額をもとにしています。勤務先からの案内とあわせて確認してください。</li>
             </ul>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -778,6 +781,41 @@ export default function Home() {
 }
 
 // 23歳未満の特例を使うときに、申告書の「☆年齢23歳未満の扶養親族」欄に書く内容
+function SubmitDocs({ list }: { list: SubmitList }) {
+  return (
+    <div className="mt-2 space-y-2">
+      <div className="rounded border border-green-300 bg-green-50 p-2">
+        <p className="font-bold">提出するハガキ・書類（{list.submit.length}点）</p>
+        {list.submit.length === 0 ? (
+          <p className="text-gray-600">申告書と一緒に出すハガキはありません。</p>
+        ) : (
+          <ul className="mt-1 space-y-1">
+            {list.submit.map((s, i) => (
+              <li key={i} className="flex gap-2">
+                <span aria-hidden>☐</span>
+                <span>{s}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      {list.notNeeded.length > 0 && (
+        <div className="rounded border border-gray-300 bg-gray-50 p-2">
+          <p className="font-bold">出さなくてよいもの（{list.notNeeded.length}点）</p>
+          <ul className="mt-1 space-y-1">
+            {list.notNeeded.map((n, i) => (
+              <li key={i}>
+                {n.label}
+                <span className="block text-xs text-gray-600">{n.reason}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Under23Box({ family, incomeLimit }: { family: Family; incomeLimit: number }) {
   const who = under23DependentFor(family, 2026, incomeLimit);
   return (

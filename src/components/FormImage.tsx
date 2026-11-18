@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Calculation } from "@/lib/calc";
-import type { Family } from "@/lib/family";
-import { buildBasicOps, buildOps, PAGE_H, PAGE_W, type Op } from "@/lib/formOps";
+import { calculate } from "@/lib/calc";
+import { under23DependentFor, type Family } from "@/lib/family";
+import { buildBasicOps, buildDependentsOps, buildOps, fitRows, PAGE_H, PAGE_W, type Op } from "@/lib/formOps";
 import type { ReadResult } from "@/lib/schema";
 
 // 国税庁の「令和8年分 給与所得者の保険料控除申告書」の画像に、記入する内容を重ねて描く。
@@ -14,6 +14,10 @@ import type { ReadResult } from "@/lib/schema";
 const INK = "#1d4ed8";
 const FONT = '"Hiragino Sans","Noto Sans JP","Yu Gothic","Meiryo",sans-serif';
 
+const RED = "#dc2626";
+
+type TextOp = { s: string; x: number; y: number; w: number; size?: number; align?: "left" | "right" | "center" };
+
 function draw(img: HTMLImageElement, ops: Op[]): string {
   const canvas = document.createElement("canvas");
   canvas.width = img.naturalWidth;
@@ -22,25 +26,18 @@ function draw(img: HTMLImageElement, ops: Op[]): string {
   ctx.drawImage(img, 0, 0);
   const sx = canvas.width / PAGE_W;
   const sy = canvas.height / PAGE_H;
-  ctx.fillStyle = INK;
-  ctx.strokeStyle = INK;
   ctx.textBaseline = "alphabetic";
-  for (const op of ops) {
-    if (op.t === "circle") {
-      ctx.lineWidth = 1.2 * sx;
-      ctx.beginPath();
-      ctx.ellipse(op.x * sx, op.y * sy, op.r * sx, op.r * sy, 0, 0, Math.PI * 2);
-      ctx.stroke();
-      continue;
-    }
-    if (!op.s) continue;
+
+  // 欄の幅に収まるまで文字を小さくする。小さくしすぎると読めないので、
+  // 1行で収まらない長い文字は2行に分けて書く（数字は分けない）。
+  const text = (op: TextOp, color: string) => {
+    if (!op.s) return;
+    ctx.fillStyle = color;
     ctx.textAlign = op.align ?? "left";
-    // 欄の幅に収まるまで文字を小さくする。小さくしすぎると読めないので、
-    // 1行で収まらない長い文字は2行に分けて書く（数字は分けない）。
-    const fit = (text: string, min: number) => {
+    const fit = (t: string, min: number) => {
       let size = op.size ?? 6.5;
       ctx.font = `${size * sy}px ${FONT}`;
-      while (ctx.measureText(text).width > op.w * sx && size > min) {
+      while (ctx.measureText(t).width > op.w * sx && size > min) {
         size -= 0.25;
         ctx.font = `${size * sy}px ${FONT}`;
       }
@@ -57,6 +54,27 @@ function draw(img: HTMLImageElement, ops: Op[]): string {
     } else {
       ctx.font = `${size * sy}px ${FONT}`;
       ctx.fillText(op.s, op.x * sx, op.y * sy, op.w * sx);
+    }
+  };
+
+  for (const op of ops) {
+    if (op.t === "circle") {
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 1.2 * sx;
+      ctx.beginPath();
+      ctx.ellipse(op.x * sx, op.y * sy, op.r * sx, op.r * sy, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (op.t === "fill") {
+      // 自分で書く欄：薄い赤で塗り、赤字で書く内容を示す
+      ctx.fillStyle = "rgba(220, 38, 38, 0.10)";
+      ctx.fillRect(op.x * sx, op.y * sy, op.w * sx, op.h * sy);
+      ctx.strokeStyle = "rgba(220, 38, 38, 0.6)";
+      ctx.lineWidth = 0.6 * sx;
+      ctx.strokeRect(op.x * sx, op.y * sy, op.w * sx, op.h * sy);
+      const size = op.size ?? 5.5;
+      text({ s: op.s, x: op.x + 1.5, y: op.y + op.h / 2 + size * 0.35, w: op.w - 3, size }, RED);
+    } else {
+      text(op, INK);
     }
   }
   return canvas.toDataURL("image/png");
@@ -136,7 +154,9 @@ export function FormCanvas({ image, ops, overflow, alt, credit, fileName }: { im
   return (
     <div className="space-y-2">
       <p className="text-xs text-gray-600">
-        青い文字が記入する内容です。○はその項目を○で囲む、✓はチェックを付けるという意味です。画像は2本指で拡大できます。
+        <b className="text-blue-700">青い文字</b>は、そのまま書き写す内容です。○はその項目を○で囲む、✓はチェックを付けるという意味です。
+        <b className="text-red-600">赤い所</b>は、お手本にない情報（氏名・住所・マイナンバーなど）で、あなたが自分で書く欄です。
+        <b>色の付いていない欄は書きません。</b>画像は2本指で拡大できます。
       </p>
       {overflow.map((o) => (
         <p key={o} className="rounded bg-yellow-50 p-2 text-sm">{o}</p>
@@ -155,13 +175,15 @@ export function FormCanvas({ image, ops, overflow, alt, credit, fileName }: { im
   );
 }
 
-export function FormImage({ data, calc, under23 }: { data: ReadResult; calc: Calculation; under23: boolean }) {
-  const { ops, overflow } = buildOps(data, calc, under23);
+export function FormImage({ data, under23, family, incomeLimit }: { data: ReadResult; under23: boolean; family: Family; incomeLimit: number }) {
+  // 行が足りないときは、上限に達して書かなくてよいハガキを除いて計算する
+  const fit = fitRows(data, under23);
+  const { ops, overflow } = buildOps(fit.data, calculate(fit.data, { under23 }), under23, under23DependentFor(family, 2026, incomeLimit));
   return (
     <FormCanvas
       image="forms/hoken-r8.png"
       ops={ops}
-      overflow={overflow}
+      overflow={[...fit.notes, ...overflow]}
       alt="保険料控除申告書の記入例"
       fileName="nencho-hoken-otehon.png"
       credit="令和８年分 給与所得者の保険料控除申告書"
@@ -179,6 +201,20 @@ export function BasicFormImage({ family }: { family: Family }) {
       alt="基礎控除申告書の記入例"
       fileName="nencho-kiso-otehon.png"
       credit="令和８年分 給与所得者の基礎控除申告書 兼 給与所得者の配偶者控除等申告書 兼 給与所得者の特定親族特別控除申告書 兼 所得金額調整控除申告書"
+    />
+  );
+}
+
+export function DependentsFormImage({ family }: { family: Family }) {
+  const { ops, overflow } = buildDependentsOps(family);
+  return (
+    <FormCanvas
+      image="forms/fuyou-r9.png"
+      ops={ops}
+      overflow={overflow}
+      alt="扶養控除等申告書の記入例"
+      fileName="nencho-fuyou-otehon.png"
+      credit="令和９年分 給与所得者の扶養控除等（異動）申告書"
     />
   );
 }

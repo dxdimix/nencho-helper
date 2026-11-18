@@ -1,4 +1,5 @@
 import { calculate, type NewOldBlock } from "./calc";
+import { fitRows } from "./formOps";
 import { COMPANY_SOCIAL_RATE, estimateSaving, incomeTax, withReconstruction } from "./estimate";
 import { basicForm, classify, dependentsForm, salaryIncome, totalIncome, under23DependentFor, type Family } from "./family";
 import { calcHousing, type HousingInput } from "./housing";
@@ -145,6 +146,7 @@ export function buildDetails(inp: DetailsInput): DetailSection[] {
       strong: true,
       note: `${yen(calc.general.deduction)} ＋ ${yen(calc.care.deduction)} ＋ ${yen(calc.pension.deduction)} ＝ ${yen(lifeSum)}${lifeSum > 120000 ? `。生命保険料控除の上限は12万円なので、${yen(120000)} に抑えています` : "（上限12万円の範囲内）"}。`,
     });
+    for (const n of fitRows(data, inp.under23).notes) lifeRows.push({ label: "申告書に書かないハガキ", note: n });
     sections.push({ title: "生命保険料控除", intro: "国税庁の保険料控除申告書の計算式で計算しています。", rows: lifeRows });
 
     const e = calc.earthquake;

@@ -16,7 +16,7 @@ describe("申告書の画像に書く内容", () => {
   });
   it("行が足りないときは知らせる", () => {
     const r = ReadResult.parse({ life: Array.from({ length: 5 }, () => life("一般", "新", 1000)) });
-    expect(buildOps(r, calculate(r), false).overflow[0]).toContain("1件");
+    expect(buildOps(r, calculate(r), false).overflow[0]).toContain("1枚");
   });
 });
 
