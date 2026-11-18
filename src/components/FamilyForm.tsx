@@ -1,5 +1,6 @@
 "use client";
 
+import { DateInput } from "@/components/DateInput";
 import { newPerson, type Disability, type Family, type Person } from "@/lib/family";
 
 // 本人・配偶者・家族の情報の入力欄。入力内容は画面の状態にだけ持つ（保存しない）。
@@ -59,10 +60,10 @@ function PersonFields({ p, onChange, isSpouse }: { p: Person; onChange: (p: Pers
           </label>
         </>
       )}
-      <label className="block text-sm">
+      <div className="block text-sm">
         <span className="text-gray-700">生年月日</span>
-        <input type="date" className="mt-1 w-full rounded border border-gray-400 p-2" value={p.birth} onChange={(e) => set("birth", e.target.value)} />
-      </label>
+        <DateInput className="mt-1" value={p.birth} onChange={(v) => set("birth", v)} />
+      </div>
       <Yen label="1年間の給与の収入（見込み）" value={p.salary} onChange={(v) => set("salary", v)} hint="ボーナス・パート代を含む給料の合計。なければ 0" />
       <Yen label="給与以外の所得（年金・事業など）" value={p.otherIncome} onChange={(v) => set("otherIncome", v)} hint="収入から経費などを引いた後の金額。なければ 0" />
       <DisabilitySelect value={p.disability} onChange={(v) => set("disability", v)} />

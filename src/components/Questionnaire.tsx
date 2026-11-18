@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Bag, Calendar, Family as FamilyIcon, Health, House, Office, Pension, PiggyBank, Question, Salary, Shield, Student } from "@/components/Illustrations";
+import { DateInput } from "@/components/DateInput";
 import { InfoTip } from "@/components/InfoTip";
 import type { Timing } from "@/components/ReviewStep";
 import type { DocId } from "@/lib/docs";
@@ -109,10 +110,10 @@ function PersonCard({ p, onChange, onRemove, isSpouse }: { p: Person; onChange: 
           )}
         </div>
       )}
-      <label className="block text-sm">
+      <div className="block text-sm">
         <span className="font-bold">生年月日</span>
-        <input type="date" className="mt-1 w-full rounded-xl border-2 border-gray-300 p-3 text-base" value={p.birth} onChange={(e) => set("birth", e.target.value)} />
-      </label>
+        <DateInput className="mt-1" value={p.birth} onChange={(v) => set("birth", v)} />
+      </div>
       <div className="text-sm">
         <span className="font-bold">今年の年収（給料の合計）</span>
         <InfoTip>

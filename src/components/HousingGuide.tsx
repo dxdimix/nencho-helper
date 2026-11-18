@@ -40,11 +40,13 @@ function Row({ label, value, strong }: { label: string; value: string; strong?: 
   );
 }
 
-export function HousingGuide({ items }: { items: HousingItem[] }) {
+export function HousingGuide({ items, onInput }: { items: HousingItem[]; onInput?: (input: HousingInput) => void }) {
   const [input, setInput] = useState<HousingInput>(() => housingInputFrom(items));
   // 新しい書類を読み取ったら、入力を作り直す
   const key = JSON.stringify(items);
   useEffect(() => setInput(housingInputFrom(JSON.parse(key))), [key]);
+  // 画面で直した値を、戻る金額の目安と「結果の詳細」にも使う
+  useEffect(() => onInput?.(input), [input, onInput]);
   const set = <K extends keyof HousingInput>(k: K, v: HousingInput[K]) => setInput({ ...input, [k]: v });
   const r = calcHousing(input);
 

@@ -64,6 +64,8 @@ src/app/page.tsx で ① アンケート → ② ハガキの登録 → ③ 確�
 2. ハガキの登録：「写真で登録」（自宅PCモードのみ）と「手で入力」（src/components/ManualEntry.tsx）を選んで1枚ずつ続けて登録。登録したハガキは一覧で確認・削除できる（registeredItems / removeItem）。必要なハガキの一覧（requiredDocs）と登録状況（readCount）も出す
 3. 確認（src/components/ReviewStep.tsx、問いかけは src/lib/review.ts）：書かない書類の案内、空欄の補足（任意）、自信がない金額の確認、アンケートで選んだ書類の撮り忘れ確認
 4. お手本：保険料控除・住宅ローン・基礎控除・扶養控除を1ページに並べる
+   - 「結果の詳細」ボタン（src/components/ResultDetails.tsx、説明文は src/lib/details.ts、テストは tests/details.test.ts）：登録した書類すべて、計算式の当てはめ、上限で抑えた額、除外した理由、家族ごとの判定、戻る金額の目安の内訳を表示する。計算は calc.ts などの結果を使い、details.ts は説明だけ作る
+- 生年月日の入力は src/components/DateInput.tsx（数字8桁の手入力＋カレンダー。解析は src/lib/dateText.ts）
 - 勤務先が11月30日以前に年末調整をする場合、23歳未満の扶養親族の所得の基準を58万円に読み替える（国税庁の案内）。
 - 住宅ローン控除（src/lib/housing.ts、src/components/HousingGuide.tsx）は「残高×控除率（100円未満切捨て）、限度額まで」の共通の計算だけ行い、借換え・増改築・連帯債務などは案内にとどめる。1年目は確定申告。
 - 控除証明書でない書類（源泉徴収票・医療費・ふるさと納税など）は otherDocs に入れ、分かりやすい言葉で案内する（OTHER_DOC_ADVICE）。

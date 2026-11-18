@@ -12,12 +12,13 @@ import { NenchoGuide } from "@/components/NenchoGuide";
 import { Guide } from "@/components/Guide";
 import { HowTo } from "@/components/HowTo";
 import { HousingGuide } from "@/components/HousingGuide";
+import { ResultDetails } from "@/components/ResultDetails";
 import { Questionnaire } from "@/components/Questionnaire";
 import { ReviewStep, type Timing } from "@/components/ReviewStep";
 import { calculate } from "@/lib/calc";
 import { readCount, requiredDocs, type DocId } from "@/lib/docs";
 import { estimateSaving } from "@/lib/estimate";
-import { calcHousing, housingInputFrom } from "@/lib/housing";
+import { calcHousing, housingInputFrom, type HousingInput } from "@/lib/housing";
 import { cloudConfigured, cloudRead, signIn, signOut, useCloud } from "@/lib/cloud";
 import { DEMO_EMAIL } from "@/lib/demo.mjs";
 import { registeredItems, removeItem } from "@/lib/review";
@@ -109,6 +110,8 @@ export default function Home() {
   const { session, ready: cloudReady, pcOnline } = useCloud(mode === "cloud");
   const canPhoto = mode === "local" || (mode === "cloud" && !!session && pcOnline === true);
   const [under23, setUnder23] = useState(false);
+  // 住宅ローン控除の欄で直した値（戻る金額の目安と「結果の詳細」に使う）
+  const [housingEdit, setHousingEdit] = useState<HousingInput | null>(null);
   // 勤務先が11月30日以前に年末調整をするなら、23歳未満の扶養親族の所得の基準を58万円に読み替える
   const under23IncomeLimit = timing === "11月以前" ? 580_000 : 620_000;
   // 家族全員の生年月日が入っていれば、23歳未満の扶養親族の有無を自動で判定する。家族がいなければ「いない」。
@@ -260,7 +263,8 @@ export default function Home() {
   // 戻る金額の目安（アンケートの答えと読み取った書類から）
   const calc = data ? calculate(data, { under23: effectiveUnder23 }) : null;
   const insuranceDeduction = calc ? calc.lifeDeduction + calc.earthquake.deduction + calc.social.deduction + calc.smallBiz.deduction : 0;
-  const housingCredit = data && data.housing.length > 0 ? (calcHousing(housingInputFrom(data.housing)).amount ?? 0) : 0;
+  const housingInput = data && data.housing.length > 0 ? (housingEdit ?? housingInputFrom(data.housing)) : null;
+  const housingCredit = housingInput ? (calcHousing(housingInput).amount ?? 0) : 0;
   const mine =
     family.self.salary > 0 && (insuranceDeduction > 0 || housingCredit > 0)
       ? { ...estimateSaving(family, insuranceDeduction, housingCredit), note: "保険料控除・住宅ローン控除で所得税が安くなる金額の目安です。会社の社会保険料を給料の約14.7%として計算しています。" }
@@ -680,6 +684,15 @@ export default function Home() {
             <div className="mt-3">{viewToggle}</div>
           </section>
 
+          <ResultDetails
+            data={data}
+            family={family}
+            under23={effectiveUnder23}
+            under23IncomeLimit={under23IncomeLimit}
+            under23Auto={autoUnder23 !== null}
+            housingInput={housingInput}
+          />
+
           <section id="hoken" className="scroll-mt-24 space-y-2">
             <h2 className="border-b-2 border-blue-600 pb-1 text-lg font-bold">1. 保険料控除申告書</h2>
             {!data || !hasInsurance ? (
@@ -710,7 +723,7 @@ export default function Home() {
           {showHousing && (
             <section id="housing" className="scroll-mt-24 space-y-2">
               <h2 className="border-b-2 border-blue-600 pb-1 text-lg font-bold">2. 住宅ローン控除</h2>
-              <HousingGuide items={data?.housing ?? []} />
+              <HousingGuide items={data?.housing ?? []} onInput={setHousingEdit} />
             </section>
           )}
 
