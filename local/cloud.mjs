@@ -84,20 +84,32 @@ export function createWorker(repo, reader) {
  * Supabase の設定があれば、見張りを始める。
  * @returns 止める関数（設定がなければ null）
  */
+/** よくある設定もれの直し方 */
+function hint(e) {
+  const m = String(e?.message ?? e);
+  if (/invalid schema/i.test(m)) return "\n  → Supabase の Project Settings → Data API の「Exposed schemas」に nencho を追加して保存してください（PCの再起動は不要です）。";
+  if (/does not exist|could not find the table/i.test(m)) return "\n  → Supabase の SQL Editor で supabase/migrations の SQL を実行してください。";
+  if (/invalid api key|jwt|unauthorized/i.test(m)) return "\n  → .env.local の SUPABASE_SECRET_KEY を確認してください。";
+  return "";
+}
+
 export function startCloud({ url, secretKey, reader, log = console.log }) {
   if (!url || !secretKey) return null;
   const client = createClient(url, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
   const worker = createWorker(supabaseRepo(client), reader);
   let warned = false;
+  let connected = false;
 
   const poll = setInterval(async () => {
     try {
       // 待っている写真がある間は、続けて処理する
       while (await worker.tick());
-      if (warned) log("Supabase に再びつながりました。");
+      if (!connected) log("外出先から使えるように、Supabase とつながりました（GitHub Pages 版の画面で「写真で登録」が使えます）。");
+      else if (warned) log("Supabase に再びつながりました。");
+      connected = true;
       warned = false;
     } catch (e) {
-      if (!warned) log(`Supabase につながりません（${e?.message ?? e}）。つながるまで確かめ続けます。`);
+      if (!warned) log(`Supabase につながりません（${e?.message ?? e}）。つながるまで確かめ続けます。${hint(e)}`);
       warned = true;
     }
   }, POLL_MS);
@@ -110,7 +122,7 @@ export function startCloud({ url, secretKey, reader, log = console.log }) {
     if (status === "SUBSCRIBED") presence.track({ online_at: new Date().toISOString() });
   });
 
-  log("外出先から使えるように、Supabase とつながりました（GitHub Pages 版の画面で「写真で登録」が使えます）。");
+  log("Supabase に接続しています…");
   return () => {
     clearInterval(poll);
     clearInterval(clean);
