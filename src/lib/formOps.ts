@@ -13,7 +13,9 @@ export type Op =
   | { t: "text"; s: string; x: number; y: number; w: number; size?: number; align?: "left" | "right" | "center" }
   | { t: "circle"; x: number; y: number; r: number }
   /** あなたが自分で書く欄（お手本にない情報）。欄を薄い赤で塗り、赤字で何を書くかを示す */
-  | { t: "fill"; s: string; x: number; y: number; w: number; h: number; size?: number };
+  | { t: "fill"; s: string; x: number; y: number; w: number; h: number; size?: number }
+  /** あえて空欄にする欄。塗らずに赤字で「空欄」と理由を示す */
+  | { t: "blank"; s: string; x: number; y: number; w: number; size?: number; align?: "left" | "right" | "center" };
 
 /** 自分で書く欄 */
 const fill = (s: string, x: number, y: number, w: number, h: number, size = 5.5): Op => ({ t: "fill", s, x, y, w, h, size });
@@ -297,6 +299,11 @@ export function buildBasicOps(f: Family): { ops: Op[]; overflow: string[] } {
   // 区分Ⅰと配偶者の欄は、配偶者控除等を受けられるときだけ書く（受けられないときは配偶者控除等申告書を書かない）
   const spouseApplies = !!(f.spouse && r.spouse && r.spouse.kind);
   if (b.kubun1 && spouseApplies) ops.push({ t: "text", s: b.kubun1, x: 280, y: 253, w: 40, size: 11, align: "center" });
+  else ops.push({ t: "blank", s: "空欄（配偶者控除なし）", x: 278.5, y: 250.5, w: 68, size: 6, align: "center" });
+  if (f.spouse && !spouseApplies) {
+    const why = r.spouse?.kubun2 ? "あなたの所得が1,000万円を超えるため" : "配偶者の所得が133万円を超えるため";
+    ops.push({ t: "blank", s: `← 配偶者控除等申告書の欄は、すべて空欄（${why}）`, x: 420, y: 121, w: 350, size: 6.5 });
+  }
   ops.push(amount(b.amount, 305, 308));
 
   // 配偶者
@@ -414,6 +421,9 @@ export function buildDependentsOps(f: Family, year = 2027): { ops: Op[]; overflo
     ops.push(...birthOps(f.spouse.birth, { 明治: [258.6, 185.7], 大正: [270.6, 185.7], 昭和: [258.6, 192.6], 平成: [270.6, 192.6] }, { year: 296, month: 323, day: 350 }, 193.5));
     ops.push(amount(r.spouseA.income, 458, 195.5));
     ops.push(fill("住所（同居なら「同上」）", 576, 163, 105, 35, 5));
+  } else if (f.spouse && r.spouseA) {
+    const why = r.selfIncome > 9_000_000 ? "あなたの所得が900万円を超えるため" : "配偶者の所得が95万円を超えるため";
+    ops.push({ t: "blank", s: `空欄（${why}）`, x: 101, y: 183, w: 98, size: 5 });
   }
 
   // Ｂ 源泉控除対象親族（16歳以上）

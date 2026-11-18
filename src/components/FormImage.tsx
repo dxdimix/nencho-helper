@@ -73,6 +73,8 @@ function draw(img: HTMLImageElement, ops: Op[]): string {
       ctx.strokeRect(op.x * sx, op.y * sy, op.w * sx, op.h * sy);
       const size = op.size ?? 5.5;
       text({ s: op.s, x: op.x + 1.5, y: op.y + op.h / 2 + size * 0.35, w: op.w - 3, size }, RED);
+    } else if (op.t === "blank") {
+      text(op, RED);
     } else {
       text(op, INK);
     }
@@ -156,7 +158,7 @@ export function FormCanvas({ image, ops, overflow, alt, credit, fileName }: { im
       <p className="text-xs text-gray-600">
         <b className="text-blue-700">青い文字</b>は、そのまま書き写す内容です。○はその項目を○で囲む、✓はチェックを付けるという意味です。
         <b className="text-red-600">赤い所</b>は、お手本にない情報（氏名・住所・マイナンバーなど）で、あなたが自分で書く欄です。
-        <b>色の付いていない欄は書きません。</b>画像は2本指で拡大できます。
+        <b>色の付いていない欄と、赤字で「空欄」とある欄は書きません。</b>画像は2本指で拡大できます。
       </p>
       {overflow.map((o) => (
         <p key={o} className="rounded bg-yellow-50 p-2 text-sm">{o}</p>
