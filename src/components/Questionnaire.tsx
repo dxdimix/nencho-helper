@@ -154,7 +154,7 @@ function PersonCard({ p, onChange, onRemove, isSpouse }: { p: Person; onChange: 
 // 質問
 
 const DOC_CARDS: { id: DocId; label: string; sub: string; icon: React.ReactNode }[] = [
-  { id: "life", label: "生命保険・医療保険", sub: "学資保険・がん保険・個人年金・共済も", icon: <Shield className="h-12 w-12" /> },
+  { id: "life", label: "生命保険・医療保険", sub: "子どもの保険・学資保険・がん保険・個人年金・共済も", icon: <Shield className="h-12 w-12" /> },
   { id: "earthquake", label: "地震保険", sub: "火災保険とセットのことが多い", icon: <House quake className="h-12 w-12" /> },
   { id: "pension", label: "家族の国民年金を払った", sub: "学生の子・会社を辞めた配偶者の分など", icon: <Pension className="h-12 w-12" /> },
   { id: "health", label: "家族の国民健康保険を払った", sub: "介護保険・後期高齢者医療も", icon: <Health className="h-12 w-12" /> },
@@ -165,8 +165,9 @@ const DOC_CARDS: { id: DocId; label: string; sub: string; icon: React.ReactNode 
 ];
 
 const DOC_INFO: Partial<Record<DocId, string>> = {
+  life: "あなたが保険料を払っている保険なら、子どもや配偶者の保険（学資保険・こども共済など）も入ります。ハガキはあなたあてに届きます。令和8年分からは、23歳未満の子どもなどを扶養していると、生命保険の控除の上限が上がります。これは家族の生年月日から自動で計算します。",
   pension: "会社員の給料から引かれる厚生年金は関係ありません。あなたが家族の分の国民年金を払った場合だけ選んでください。",
-  health: "給料から引かれる健康保険は関係ありません。親などの国民健康保険料をあなたが払った場合だけ選んでください。",
+  health: "給料から引かれる健康保険は関係ありません。親や子どもなど、家族の国民健康保険料をあなたが払った場合だけ選んでください。",
   smallbiz: "個人で入る年金づくりの制度です。会社の給料から天引きの場合は、会社がすでに知っていることがあります。",
 };
 
