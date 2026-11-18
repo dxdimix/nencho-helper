@@ -114,11 +114,19 @@ function PersonCard({ p, onChange, onRemove, isSpouse }: { p: Person; onChange: 
         <input type="date" className="mt-1 w-full rounded-xl border-2 border-gray-300 p-3 text-base" value={p.birth} onChange={(e) => set("birth", e.target.value)} />
       </label>
       <div className="text-sm">
-        <span className="font-bold">今年の年収（パート・アルバイト代など）</span>
-        <InfoTip>税金などが引かれる前の、1年分の給料の合計です。働いていなければ 0円 を選んでください。</InfoTip>
+        <span className="font-bold">今年の年収（給料の合計）</span>
+        <InfoTip>
+          税金などが引かれる前の、1年分の給料の合計です（ボーナス・パート代も含みます）。働いていなければ 0円 を選んでください。
+          {isSpouse && " 共働きで年収が約207万円より多い場合は、配偶者についての控除はありません。その場合も、だいたいの年収を入れてください。"}
+        </InfoTip>
         <div className="mt-1">
-          <MoneyInput value={p.salary} onChange={(v) => set("salary", v)} chips={[0, 500_000, 1_000_000, 1_300_000, 1_500_000, 2_000_000]} />
+          <MoneyInput
+            value={p.salary}
+            onChange={(v) => set("salary", v)}
+            chips={isSpouse ? [0, 1_000_000, 1_500_000, 2_000_000, 3_000_000, 4_000_000, 5_000_000] : [0, 500_000, 1_000_000, 1_300_000, 1_500_000, 2_000_000]}
+          />
         </div>
+        {isSpouse && <p className="mt-1 text-xs text-gray-600">共働きの方も入れてください。金額は上の欄に直接入力もできます。</p>}
       </div>
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" className="h-5 w-5" checked={p.livingTogether} onChange={(e) => set("livingTogether", e.target.checked)} />

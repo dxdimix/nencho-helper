@@ -63,7 +63,7 @@ function PersonFields({ p, onChange, isSpouse }: { p: Person; onChange: (p: Pers
         <span className="text-gray-700">生年月日</span>
         <input type="date" className="mt-1 w-full rounded border border-gray-400 p-2" value={p.birth} onChange={(e) => set("birth", e.target.value)} />
       </label>
-      <Yen label="1年間の給与の収入（見込み）" value={p.salary} onChange={(v) => set("salary", v)} hint="パート・アルバイト代を含む。なければ 0" />
+      <Yen label="1年間の給与の収入（見込み）" value={p.salary} onChange={(v) => set("salary", v)} hint="ボーナス・パート代を含む給料の合計。なければ 0" />
       <Yen label="給与以外の所得（年金・事業など）" value={p.otherIncome} onChange={(v) => set("otherIncome", v)} hint="収入から経費などを引いた後の金額。なければ 0" />
       <DisabilitySelect value={p.disability} onChange={(v) => set("disability", v)} />
       <label className="flex items-center gap-2 text-sm">
