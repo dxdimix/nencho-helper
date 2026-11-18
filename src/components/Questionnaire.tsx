@@ -126,7 +126,7 @@ function PersonCard({ p, onChange, onRemove, isSpouse }: { p: Person; onChange: 
             chips={isSpouse ? [0, 1_000_000, 1_500_000, 2_000_000, 3_000_000, 4_000_000, 5_000_000] : [0, 500_000, 1_000_000, 1_300_000, 1_500_000, 2_000_000]}
           />
         </div>
-        {isSpouse && <p className="mt-1 text-xs text-gray-600">共働きの方も入れてください。金額は上の欄に直接入力もできます。</p>}
+        {isSpouse && <p className="mt-1 text-xs text-gray-600">共働きの方も入れてください。ボタンにない金額は「金額を入力」の欄に直接入れられます。</p>}
       </div>
       <label className="flex items-center gap-2 text-sm">
         <input type="checkbox" className="h-5 w-5" checked={p.livingTogether} onChange={(e) => set("livingTogether", e.target.checked)} />
